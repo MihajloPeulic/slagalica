@@ -1,0 +1,1 @@
+Napravi da u matematici plavi dobije 5 ako nije tacno ali je blizi broju od crvenog
