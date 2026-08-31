@@ -7,7 +7,7 @@ import { getFriends } from "@/data/friends";
 import { useRouter } from "next/navigation";
 import { createGameRoom } from "@/actions/game"; // Pretpostavljam putanju do tvoje akcije
 
-export default function FriendsModal(username: string) {
+export default function FriendsModal() {
     const router = useRouter();
 
     // 1. Tabovi i pretraga
