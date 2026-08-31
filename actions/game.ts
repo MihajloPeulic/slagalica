@@ -18,6 +18,7 @@ export async function createGameRoom(friendId: string) {
         .from("game_rooms")
         .insert({
             player_blue_id: userId,
+            blue_name: user.profile.username,
             player_red_id: friendId, // Unosimo odmah ID prijatelja da bi znao da je on pozvan
             status: "waiting",
             game_state: initialGameState,

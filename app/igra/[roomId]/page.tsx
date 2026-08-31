@@ -1,13 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { redirect, useParams, useRouter } from "next/navigation";
 import { joinGameRoom } from "@/actions/game";
 import { Loader2, ShieldAlert } from "lucide-react";
 import { createClientSupabaseClient } from "@/utils/supabase/client";
 import { GameHeader } from "@/components/HeaderZaIgre";
-import { PronadjiRec } from "@/game_components/rec/page";
 import { EndScreen } from "@/game_components/EndScreen";
+import { MojBroj } from "@/game_components/moj_broj/page";
+import { Skocko } from "@/game_components/skocko/page";
+import { Spojnice } from "@/game_components/spojnice/page";
+import { KoZnaZna } from "@/game_components/ko_zna_zna/page";
+import { Asocijacije } from "@/game_components/asocijacije/page";
+import { PronadjiRec } from "@/game_components/rec/page";
 
 const supabase = createClientSupabaseClient();
 
@@ -178,6 +183,20 @@ export default function GameRoomPage() {
                     setRoomData((prev: any) => ({
                         ...prev,
                         status: payload.new.status,
+                    }));
+                }
+            ).on(
+                "postgres_changes",
+                {
+                    event: "DELETE",
+                    schema: "public",
+                    table: "game_rooms",
+                    filter: `id=eq.${roomId}`,
+                },
+                payload => {
+                    setRoomData(() => ({
+                        
+                        status: "deleted",
                     }));
                 }
             )
@@ -417,35 +436,30 @@ export default function GameRoomPage() {
         );
     }
 
+    if(roomData.status === "deleted"){
+        setTimeout(() => {
+            redirect('/')
+        }, 3000)
+        return (
+            <div className="flex flex-col h-screen items-center justify-center bg-background text-red-500 gap-2">
+                <ShieldAlert className="h-10 w-10" />
+                <p className="font-bold">
+                    Igrač je odbio poziv.
+                </p>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col items-center justify-between min-h-screen p-6 bg-background text-text">
             <GameHeader
-                player1Score={
-                    myRole === "blue"
-                        ? localScoreBlue
-                        : localScoreRed
-                }
-                player2Score={
-                    myRole === "blue"
-                        ? localScoreRed
-                        : localScoreBlue
-                }
+                role={myRole}
+                player1Score={localScoreBlue}
+                player2Score={localScoreRed}
                 timeLeft={currentHeaderTime}
                 isSubmitted={false}
-                player1Name={
-                    myRole === "blue"
-                        ? roomData?.profiles_blue
-                              ?.username
-                        : roomData?.profiles_red
-                              ?.username
-                }
-                player2Name={
-                    myRole === "blue"
-                        ? roomData?.profiles_red
-                              ?.username
-                        : roomData?.profiles_blue
-                              ?.username
-                }
+                blueName={ roomData?.profiles_blue?.username}
+                redName={roomData?.profiles_red?.username}
             />
 
             <main className="flex flex-col items-center justify-center text-center my-auto w-full max-w-md gap-4">
@@ -458,49 +472,106 @@ export default function GameRoomPage() {
                             uđe...
                         </h2>
                     </div>
-                ) : (
+                ) :  (
                     <div className="flex flex-col items-center gap-4 w-full">
                         <span className="text-[10px] uppercase font-bold text-text-secondary bg-surface-light px-2 py-1 rounded-md">
                             Igra {gameIndex + 1} /
                             6 • Runda {round} / 2
                         </span>
 
-                        {isConnected &&
+                         {isConnected &&
                             gameIndex === 0 &&
                             myRole &&
                             gameState?.rec && (
                                 <PronadjiRec
-                                    myRole={
-                                        myRole
-                                    }
+                                    myRole={myRole}
                                     round={round}
-                                    tiles={
-                                        round ===
-                                        1
-                                            ? gameState
-                                                  .rec
-                                                  .runda_1
-                                            : gameState
-                                                  .rec
-                                                  .runda_2
-                                    }
-                                    sendBroadcast={
-                                        sendBroadcast
-                                    }
-                                    incomingBroadcast={
-                                        lastBroadcastPayload
-                                    }
-                                    onScoreSubmit={
-                                        handleScoreSubmit
-                                    }
-                                    onNextRound={
-                                        handleNextRound
-                                    }
-                                    onTimerTick={time =>
-                                        setCurrentHeaderTime(
-                                            time
-                                        )
-                                    }
+                                    tiles={round === 1 ? gameState.rec.runda_1: gameState.rec.runda_2}
+                                    sendBroadcast={sendBroadcast}
+                                    incomingBroadcast={lastBroadcastPayload}
+                                    onScoreSubmit={ handleScoreSubmit }
+                                    onNextRound={ handleNextRound }
+                                    onTimerTick={time => setCurrentHeaderTime(time)}
+                                />
+                            )} 
+
+                            {isConnected &&
+                            gameIndex === 1 &&
+                            myRole &&
+                            gameState?.rec && (
+                                <MojBroj
+                                    myRole={myRole}
+                                    round={round}
+                                    data={round === 1 ? gameState.broj.runda_1: gameState.broj.runda_2}
+                                    sendBroadcast={sendBroadcast}
+                                    incomingBroadcast={lastBroadcastPayload}
+                                    onScoreSubmit={ handleScoreSubmit }
+                                    onNextRound={ handleNextRound }
+                                    onTimerTick={time => setCurrentHeaderTime(time)}
+                                />
+                            )}
+
+                         {isConnected &&
+                            gameIndex === 2 &&
+                            myRole &&
+                            gameState?.rec && (
+                                <Skocko
+                                    myRole={myRole}
+                                    round={round}
+                                    data={round === 1 ? gameState.skocko.runda_1: gameState.skocko.runda_2}
+                                    sendBroadcast={sendBroadcast}
+                                    incomingBroadcast={lastBroadcastPayload}
+                                    onScoreSubmit={ handleScoreSubmit }
+                                    onNextRound={ handleNextRound }
+                                    onTimerTick={time => setCurrentHeaderTime(time)}
+                                />
+                            )}
+
+                            {isConnected &&
+                            gameIndex === 3 &&
+                            myRole &&
+                            gameState?.rec && (
+                                <Spojnice
+                                    myRole={myRole}
+                                    round={round}
+                                    data={round === 1 ? gameState.spojnice.runda_1: gameState.spojnice.runda_2}
+                                    sendBroadcast={sendBroadcast}
+                                    incomingBroadcast={lastBroadcastPayload}
+                                    onScoreSubmit={ handleScoreSubmit }
+                                    onNextRound={ handleNextRound }
+                                    onTimerTick={time => setCurrentHeaderTime(time)}
+                                />
+                            )} 
+
+                            {isConnected &&
+                            gameIndex === 4 &&
+                            myRole &&
+                            gameState?.rec && (
+                                <KoZnaZna
+                                    myRole={myRole}
+                                    round={round}
+                                    data={ gameState.ko_zna_zna}
+                                    sendBroadcast={sendBroadcast}
+                                    incomingBroadcast={lastBroadcastPayload}
+                                    onScoreSubmit={ handleScoreSubmit }
+                                    onNextRound={ handleNextRound }
+                                    onTimerTick={time => setCurrentHeaderTime(time)}
+                                />
+                            )}
+
+                            {isConnected &&
+                            gameIndex === 5 &&
+                            myRole &&
+                            gameState?.rec && (
+                                <Asocijacije
+                                    myRole={myRole}
+                                    data={round === 1 ? gameState.asocijacije.runda_1: gameState.asocijacije.runda_2}
+                                    round={round}
+                                    sendBroadcast={sendBroadcast}
+                                    incomingBroadcast={lastBroadcastPayload}
+                                    onScoreSubmit={ handleScoreSubmit }
+                                    onNextRound={ handleNextRound }
+                                    onTimerTick={time => setCurrentHeaderTime(time)}
                                 />
                             )}
 

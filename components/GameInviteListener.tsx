@@ -8,14 +8,24 @@ import { rejectGameInvite } from "@/actions/game";
 
 const supabase = createClientSupabaseClient();
 
-export default function GameInviteListener({ currentUserId }: { currentUserId: string }) {
+interface IncomingInvite {
+    roomId: string;
+    username: string;
+}
+
+export default function GameInviteListener({
+    currentUserId
+}: {
+    currentUserId: string;
+}) {
     const router = useRouter();
-    const [incomingInvite, setIncomingInvite] = useState<{ roomId: string } | null>(null);
+
+    const [incomingInvite, setIncomingInvite] =
+        useState<IncomingInvite | null>(null);
 
     useEffect(() => {
         if (!currentUserId) return;
 
-        // Slušamo da li je neko kreirao sobu gde je trenutni korisnik player_red_id
         const channel = supabase
             .channel(`invites_${currentUserId}`)
             .on(
@@ -26,11 +36,19 @@ export default function GameInviteListener({ currentUserId }: { currentUserId: s
                     table: "game_rooms",
                     filter: `player_red_id=eq.${currentUserId}`,
                 },
-                (payload) => {
+                async (payload) => {
                     const newRoom = payload.new as any;
-                    if (newRoom.status === "waiting") {
-                        setIncomingInvite({ roomId: newRoom.id });
+
+                    if (newRoom.status !== "waiting") {
+                        return;
                     }
+
+                    
+
+                    setIncomingInvite({
+                        roomId: newRoom.id,
+                        username: newRoom.blue_name
+                    });
                 }
             )
             .subscribe();
@@ -40,40 +58,126 @@ export default function GameInviteListener({ currentUserId }: { currentUserId: s
         };
     }, [currentUserId]);
 
-    if (!incomingInvite) return null;
+    if (!incomingInvite) {
+        return null;
+    }
 
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in">
-            <div className="bg-surface border border-primary/40 p-6 rounded-3xl max-w-sm w-full flex flex-col items-center text-center shadow-[0_0_50px_rgba(245,158,11,0.2)]">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary border border-primary/20 mb-4 animate-bounce">
-                    <Swords className="h-7 w-7" />
-                </div>
-                
-                <h3 className="text-xl font-black text-text mb-1">Izazov na duelu!</h3>
-                <p className="text-xs text-text-secondary mb-6">Prijatelj te pozvao da odigrate meč Slagalice.</p>
-
-                <div className="flex items-center gap-3 w-full">
-                    {/* ODBIJ DUGME */}
-                    <button
-                        onClick={async () => {
-                            await rejectGameInvite(incomingInvite.roomId);
-                            setIncomingInvite(null);
-                        }}
-                        className="flex-1 flex items-center justify-center gap-2 bg-surface-light border border-border py-3 rounded-2xl text-xs font-bold text-text-secondary hover:text-text transition-all"
+        <div
+            className="
+                fixed
+                top-3
+                left-1/2
+                -translate-x-1/2
+                z-[100]
+                w-[calc(100%-24px)]
+                max-w-[390px]
+                animate-in
+                slide-in-from-top-4
+                fade-in
+                duration-300
+            "
+        >
+            <div
+                className="
+                    flex
+                    items-center
+                    justify-between
+                    gap-3
+                    rounded-2xl
+                    border
+                    border-border
+                    bg-surface/95
+                    backdrop-blur-xl
+                    px-3.5
+                    py-3
+                    shadow-2xl
+                "
+            >
+                {/* LIJEVA STRANA */}
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <div
+                        className="
+                            flex
+                            h-9
+                            w-9
+                            shrink-0
+                            items-center
+                            justify-center
+                            rounded-xl
+                            border
+                            border-primary/20
+                            bg-primary/10
+                            text-primary
+                        "
                     >
-                        <X className="h-4 w-4" />
-                        Odbij
-                    </button>
+                        <Swords className="h-4.5 w-4.5" />
+                    </div>
 
-                    {/* PRIHVATI DUGME */}
+                    <p className="min-w-0 text-xs leading-snug text-text">
+                        <span className="font-black text-primary">
+                            {incomingInvite.username}
+                        </span>{" "}
+                        vas izaziva na meč ⚔️
+                    </p>
+                </div>
+
+                {/* DESNA STRANA */}
+                <div className="flex shrink-0 items-center gap-1.5">
+                    {/* ACCEPT */}
                     <button
                         onClick={() => {
-                            router.push(`/igra/${incomingInvite.roomId}`);
+                            router.push(
+                                `/igra/${incomingInvite.roomId}`
+                            );
                         }}
-                        className="flex-1 flex items-center justify-center gap-2 bg-primary py-3 rounded-2xl text-xs font-bold text-black shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all"
+                        aria-label="Prihvati izazov"
+                        className="
+                            flex
+                            h-9
+                            w-9
+                            items-center
+                            justify-center
+                            rounded-xl
+                            border
+                            border-emerald-500/30
+                            bg-emerald-500/10
+                            text-emerald-400
+                            transition-all
+                            hover:bg-emerald-500/20
+                            active:scale-90
+                        "
                     >
                         <Check className="h-4 w-4 stroke-[3]" />
-                        Prihvati
+                    </button>
+
+                    {/* REJECT */}
+                    <button
+                        onClick={async () => {
+                            await rejectGameInvite(
+                                incomingInvite.roomId
+                            );
+
+                            setIncomingInvite(null);
+                        }}
+                        aria-label="Odbij izazov"
+                        className="
+                            flex
+                            h-9
+                            w-9
+                            items-center
+                            justify-center
+                            rounded-xl
+                            border
+                            border-red-500/25
+                            bg-red-500/10
+                            text-red-400
+                            transition-all
+                            hover:bg-red-500/20
+                            active:scale-90
+                        "
+                    >
+                        <X className="h-4 w-4 stroke-[2.5]" />
                     </button>
                 </div>
             </div>

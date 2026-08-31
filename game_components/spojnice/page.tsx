@@ -39,8 +39,15 @@ export function Spojnice({
 }: SpojniceProps) {
     const [phase, setPhase] = useState<"countdown" | "playing" | "intermission">("countdown");
     
+    // Timestampovi su source of truth za sve tajmere.
+    const [turnExpiresAt, setTurnExpiresAt] = useState(() => Date.now() + 15 * 1000);
+    const [transitionExpiresAt, setTransitionExpiresAt] = useState(0);
+    const [countdownExpiresAt, setCountdownExpiresAt] = useState(() => Date.now() + 5 * 1000);
+    const [intermissionExpiresAt, setIntermissionExpiresAt] = useState(0);
+
+    // UI countdown vrijednosti.
     const [timeLeft, setTimeLeft] = useState(15);
-    const [transitionTimer, setTransitionTimer] = useState(3); 
+    const [transitionTimer, setTransitionTimer] = useState(3);
     const [countdownTimer, setCountdownTimer] = useState(5);
     const [intermissionTimeLeft, setIntermissionTimeLeft] = useState(10);
 
@@ -50,6 +57,7 @@ export function Spojnice({
     // Ref-ovi za praćenje prethodnih poena da tačno pošaljemo deltice (razliku) u header
     const prevBlueRef = useRef(0);
     const prevRedRef = useRef(0);
+    const hasReceivedSyncRef = useRef(false);
 
     const leftItems = data?.pairs || [];
     const [rightItems, setRightItems] = useState<PairItem[]>([]);
@@ -81,6 +89,24 @@ export function Spojnice({
         }
     }
 
+    const gameSnapshot = useRef({
+        phase,
+        turnExpiresAt,
+        transitionExpiresAt,
+        countdownExpiresAt,
+        intermissionExpiresAt,
+        blueScore,
+        redScore,
+        rightItems,
+        currentIndex,
+        activePlayer,
+        selectedRight,
+        matchedPairs,
+        missedLeftIds,
+        attemptCount,
+        isError,
+    });
+
     // ================= 1. INICIJALIZACIJA I SYNC REQUEST =================
     useEffect(() => {
         if (!data) return;
@@ -92,16 +118,26 @@ export function Spojnice({
         setAttemptCount(0);
         setSelectedRight(null);
         setIsError(false);
+
+        const now = Date.now();
+        setCountdownExpiresAt(now + 5 * 1000);
+        setTurnExpiresAt(now + 15 * 1000);
+        setTransitionExpiresAt(0);
+        setIntermissionExpiresAt(0);
+
         setCountdownTimer(5);
-        setIntermissionTimeLeft(10);
-        setActivePlayer(round === 1 ? "blue" : "red");
         setTimeLeft(15);
+        setTransitionTimer(3);
+        setIntermissionTimeLeft(10);
+
+        setActivePlayer(round === 1 ? "blue" : "red");
         setBlueScore(0);
         setRedScore(0);
         prevBlueRef.current = 0;
         prevRedRef.current = 0;
-        
         setPhase("countdown");
+
+        hasReceivedSyncRef.current = false;
 
         sendBroadcast({
             type: "SPOJNICE_SYNC_REQUEST",
@@ -110,20 +146,84 @@ export function Spojnice({
         });
     }, [data, round]);
 
+    useEffect(() => {
+        gameSnapshot.current = {
+            phase,
+            turnExpiresAt,
+            transitionExpiresAt,
+            countdownExpiresAt,
+            intermissionExpiresAt,
+            blueScore,
+            redScore,
+            rightItems,
+            currentIndex,
+            activePlayer,
+            selectedRight,
+            matchedPairs,
+            missedLeftIds,
+            attemptCount,
+            isError,
+        };
+    }, [
+        phase,
+        turnExpiresAt,
+        transitionExpiresAt,
+        countdownExpiresAt,
+        intermissionExpiresAt,
+        blueScore,
+        redScore,
+        rightItems,
+        currentIndex,
+        activePlayer,
+        selectedRight,
+        matchedPairs,
+        missedLeftIds,
+        attemptCount,
+        isError,
+    ]);
+
     // ================= 2. SLUŠALAC BROADCAST PORUKA =================
     useEffect(() => {
         if (!incomingBroadcast || incomingBroadcast.role === myRole) return;
 
         if (incomingBroadcast.round !== undefined && incomingBroadcast.round !== round) {
-            return; 
+            return;
         }
 
         if (incomingBroadcast.type === "SPOJNICE_SYNC_REQUEST") {
-            broadcastSync();
+            const snapshot = gameSnapshot.current;
+
+            sendBroadcast({
+                type: "SPOJNICE_SYNC",
+                role: myRole,
+                round,
+                matchedPairs: snapshot.matchedPairs,
+                missedLeftIds: snapshot.missedLeftIds,
+                currentIndex: snapshot.currentIndex,
+                activePlayer: snapshot.activePlayer,
+                attemptCount: snapshot.attemptCount,
+                selectedRight: snapshot.selectedRight,
+                isError: snapshot.isError,
+                phase: snapshot.phase,
+                blueScore: snapshot.blueScore,
+                redScore: snapshot.redScore,
+                rightItems: snapshot.rightItems,
+                turnExpiresAt: snapshot.turnExpiresAt,
+                transitionExpiresAt: snapshot.transitionExpiresAt,
+                countdownExpiresAt: snapshot.countdownExpiresAt,
+                intermissionExpiresAt: snapshot.intermissionExpiresAt,
+                isRefreshSync: true,
+            });
+
             return;
         }
 
         if (incomingBroadcast.type === "SPOJNICE_SYNC") {
+            if (incomingBroadcast.isRefreshSync) {
+                if (hasReceivedSyncRef.current) return;
+                hasReceivedSyncRef.current = true;
+            }
+
             if (incomingBroadcast.matchedPairs) setMatchedPairs(incomingBroadcast.matchedPairs);
             if (incomingBroadcast.missedLeftIds) setMissedLeftIds(incomingBroadcast.missedLeftIds);
             if (incomingBroadcast.currentIndex !== undefined) setCurrentIndex(incomingBroadcast.currentIndex);
@@ -132,8 +232,8 @@ export function Spojnice({
             if (incomingBroadcast.selectedRight !== undefined) setSelectedRight(incomingBroadcast.selectedRight);
             if (incomingBroadcast.isError !== undefined) setIsError(incomingBroadcast.isError);
             if (incomingBroadcast.phase) setPhase(incomingBroadcast.phase);
-            
-            // Sinhronizacija bodova u realnom vremenu na oba ekrana
+            if (incomingBroadcast.rightItems) setRightItems(incomingBroadcast.rightItems);
+
             if (incomingBroadcast.blueScore !== undefined) {
                 setBlueScore(incomingBroadcast.blueScore);
                 updateHeaderDelta(incomingBroadcast.blueScore, incomingBroadcast.redScore ?? redScore);
@@ -143,15 +243,27 @@ export function Spojnice({
                 updateHeaderDelta(incomingBroadcast.blueScore ?? blueScore, incomingBroadcast.redScore);
             }
 
-            if (incomingBroadcast.countdownTimer !== undefined) setCountdownTimer(incomingBroadcast.countdownTimer);
-            if (incomingBroadcast.timeLeft !== undefined) setTimeLeft(incomingBroadcast.timeLeft);
-            if (incomingBroadcast.intermissionTimeLeft !== undefined) setIntermissionTimeLeft(incomingBroadcast.intermissionTimeLeft);
-            if (incomingBroadcast.transitionTimer !== undefined) setTransitionTimer(incomingBroadcast.transitionTimer);
+            if (incomingBroadcast.turnExpiresAt !== undefined) {
+                setTurnExpiresAt(incomingBroadcast.turnExpiresAt);
+            }
+            if (incomingBroadcast.transitionExpiresAt !== undefined) {
+                setTransitionExpiresAt(incomingBroadcast.transitionExpiresAt);
+            }
+            if (incomingBroadcast.countdownExpiresAt !== undefined) {
+                setCountdownExpiresAt(incomingBroadcast.countdownExpiresAt);
+            }
+            if (incomingBroadcast.intermissionExpiresAt !== undefined) {
+                setIntermissionExpiresAt(incomingBroadcast.intermissionExpiresAt);
+            }
+
+            return;
         }
-        else if (incomingBroadcast.type === "SPOJNICE_END_ROUND") {
+
+        if (incomingBroadcast.type === "SPOJNICE_END_ROUND") {
             setPhase("intermission");
             setMatchedPairs(incomingBroadcast.matchedPairs);
             setMissedLeftIds(incomingBroadcast.missedLeftIds);
+
             if (incomingBroadcast.blueScore !== undefined) {
                 setBlueScore(incomingBroadcast.blueScore);
                 updateHeaderDelta(incomingBroadcast.blueScore, incomingBroadcast.redScore ?? redScore);
@@ -160,6 +272,12 @@ export function Spojnice({
                 setRedScore(incomingBroadcast.redScore);
                 updateHeaderDelta(incomingBroadcast.blueScore ?? blueScore, incomingBroadcast.redScore);
             }
+
+            if (incomingBroadcast.intermissionExpiresAt !== undefined) {
+                setIntermissionExpiresAt(incomingBroadcast.intermissionExpiresAt);
+            }
+
+            return;
         }
     }, [incomingBroadcast, myRole, round, blueScore, redScore]);
 
@@ -178,10 +296,11 @@ export function Spojnice({
             phase,
             blueScore,
             redScore,
-            countdownTimer,
-            timeLeft,
-            intermissionTimeLeft,
-            transitionTimer,
+            rightItems,
+            turnExpiresAt,
+            transitionExpiresAt,
+            countdownExpiresAt,
+            intermissionExpiresAt,
             ...extra
         });
     }
@@ -190,22 +309,49 @@ export function Spojnice({
     useEffect(() => {
         if (phase !== "countdown") return;
 
-        onTimerTick(countdownTimer);
+        const tick = () => {
+            const remaining = Math.max(
+                0,
+                Math.ceil((countdownExpiresAt - Date.now()) / 1000)
+            );
 
-        if (countdownTimer > 0) {
-            const timer = setInterval(() => setCountdownTimer(prev => prev - 1), 1000);
-            return () => clearInterval(timer);
-        } else {
-            setPhase("playing");
-            setTimeLeft(15);
-            broadcastSync({ phase: "playing", timeLeft: 15 });
-        }
-    }, [phase, countdownTimer]);
+            setCountdownTimer(remaining);
+            onTimerTick(remaining);
+
+            if (remaining <= 0) {
+                const newTurnExpiresAt = Date.now() + 15 * 1000;
+
+                setPhase("playing");
+                setTimeLeft(15);
+                setTurnExpiresAt(newTurnExpiresAt);
+
+                broadcastSync({
+                    phase: "playing",
+                    turnExpiresAt: newTurnExpiresAt
+                });
+
+                return true;
+            }
+
+            return false;
+        };
+
+        if (tick()) return;
+
+        const timer = setInterval(() => {
+            if (tick()) clearInterval(timer);
+        }, 250);
+
+        return () => clearInterval(timer);
+    }, [phase, countdownExpiresAt]);
 
     // Kada se igra završi, prelazi se u intermisiju
     useEffect(() => {
         if (isGameOver && phase === "playing") {
+            const newIntermissionExpiresAt = Date.now() + 10 * 1000;
+
             setPhase("intermission");
+            setIntermissionExpiresAt(newIntermissionExpiresAt);
             setIntermissionTimeLeft(10);
 
             sendBroadcast({
@@ -215,7 +361,8 @@ export function Spojnice({
                 matchedPairs,
                 missedLeftIds,
                 blueScore,
-                redScore
+                redScore,
+                intermissionExpiresAt: newIntermissionExpiresAt
             });
         }
     }, [isGameOver, phase, round, blueScore, redScore, matchedPairs, missedLeftIds]);
@@ -223,41 +370,98 @@ export function Spojnice({
     // ================= 4. TAJMER TOKA IGRE (PLAYING) =================
     useEffect(() => {
         if (isGameOver || phase !== "playing") return;
-        
-        onTimerTick(isError ? transitionTimer : timeLeft);
 
-        if (isError) {
-            if (transitionTimer > 0) {
-                const timer = setInterval(() => setTransitionTimer(prev => prev - 1), 1000);
-                return () => clearInterval(timer);
-            } else if (activePlayer === myRole) { 
-                executeTurnSwitch();
+        const tick = () => {
+            if (isError) {
+                const remaining = Math.max(
+                    0,
+                    Math.ceil((transitionExpiresAt - Date.now()) / 1000)
+                );
+
+                setTransitionTimer(remaining);
+                onTimerTick(remaining);
+
+                if (remaining <= 0 && activePlayer === myRole) {
+                    executeTurnSwitch();
+                    return true;
+                }
+
+                return false;
             }
-        } else {
-            if (timeLeft > 0) {
-                const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
-                return () => clearInterval(timer);
-            } else if (activePlayer === myRole) {
+
+            const remaining = Math.max(
+                0,
+                Math.ceil((turnExpiresAt - Date.now()) / 1000)
+            );
+
+            setTimeLeft(remaining);
+            onTimerTick(remaining);
+
+            if (remaining <= 0 && activePlayer === myRole) {
+                const newTransitionExpiresAt = Date.now() + 3 * 1000;
+
                 setIsError(true);
                 setTransitionTimer(3);
-                broadcastSync({ isError: true, transitionTimer: 3 });
+                setTransitionExpiresAt(newTransitionExpiresAt);
+
+                broadcastSync({
+                    isError: true,
+                    transitionExpiresAt: newTransitionExpiresAt
+                });
+
+                return true;
             }
-        }
-    }, [timeLeft, isGameOver, isError, transitionTimer, phase, myRole, activePlayer]);
+
+            return false;
+        };
+
+        if (tick()) return;
+
+        const timer = setInterval(() => {
+            if (tick()) clearInterval(timer);
+        }, 250);
+
+        return () => clearInterval(timer);
+    }, [
+        turnExpiresAt,
+        transitionExpiresAt,
+        isGameOver,
+        isError,
+        phase,
+        myRole,
+        activePlayer
+    ]);
 
     // ================= 5. TAJMER INTERMISIJE (10s) =================
     useEffect(() => {
         if (phase !== "intermission") return;
+        if (intermissionExpiresAt <= 0) return;
 
-        onTimerTick(intermissionTimeLeft);
+        const tick = () => {
+            const remaining = Math.max(
+                0,
+                Math.ceil((intermissionExpiresAt - Date.now()) / 1000)
+            );
 
-        if (intermissionTimeLeft > 0) {
-            const timer = setInterval(() => setIntermissionTimeLeft(prev => prev - 1), 1000);
-            return () => clearInterval(timer);
-        } else {
-            onNextRound();
-        }
-    }, [phase, intermissionTimeLeft, onNextRound]);
+            setIntermissionTimeLeft(remaining);
+            onTimerTick(remaining);
+
+            if (remaining <= 0) {
+                onNextRound();
+                return true;
+            }
+
+            return false;
+        };
+
+        if (tick()) return;
+
+        const timer = setInterval(() => {
+            if (tick()) clearInterval(timer);
+        }, 250);
+
+        return () => clearInterval(timer);
+    }, [phase, intermissionExpiresAt, onNextRound]);
 
     function executeTurnSwitch() {
         if (attemptCount === 0) {
@@ -287,10 +491,14 @@ export function Spojnice({
     }
 
     function proceedToNextRow(updatedMissed: number[], updatedMatched: any[], currBlue: number, currRed: number) {
+        const newTurnExpiresAt = Date.now() + 15 * 1000;
+
         setSelectedRight(null);
         setIsError(false);
         setAttemptCount(0);
         setTimeLeft(15);
+        setTurnExpiresAt(newTurnExpiresAt);
+        setTransitionExpiresAt(0);
 
         const nextIndex = currentIndex + 1;
         const nextPlayer = roundStarter;
@@ -307,7 +515,8 @@ export function Spojnice({
                 attemptCount: 0,
                 selectedRight: null,
                 isError: false,
-                timeLeft: 15,
+                turnExpiresAt: newTurnExpiresAt,
+                transitionExpiresAt: 0,
                 blueScore: currBlue,
                 redScore: currRed
             });
@@ -346,9 +555,17 @@ export function Spojnice({
             proceedToNextRow(missedLeftIds, updatedMatched, currBlue, currRed);
         } else {
             // Netačan pogodak -> Greška
+            const newTransitionExpiresAt = Date.now() + 3 * 1000;
+
             setIsError(true);
             setTransitionTimer(3);
-            broadcastSync({ selectedRight: item, isError: true, transitionTimer: 3 });
+            setTransitionExpiresAt(newTransitionExpiresAt);
+
+            broadcastSync({
+                selectedRight: item,
+                isError: true,
+                transitionExpiresAt: newTransitionExpiresAt
+            });
         }
     }
 

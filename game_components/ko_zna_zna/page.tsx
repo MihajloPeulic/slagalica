@@ -51,6 +51,10 @@ export function KoZnaZna({
 
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [phase, setPhase] = useState<Phase>("answering");
+    const [answerExpiresAt, setAnswerExpiresAt] = useState(() => Date.now() + 20 * 1000);
+    const [revealExpiresAt, setRevealExpiresAt] = useState(0);
+    const [summaryExpiresAt, setSummaryExpiresAt] = useState(0);
+
     const [timeLeft, setTimeLeft] = useState(20);
     const [transitionTimer, setTransitionTimer] = useState(3);
     const [summaryTimeLeft, setSummaryTimeLeft] = useState(10);
@@ -68,17 +72,17 @@ export function KoZnaZna({
     const evaluatedQuestionRef = useRef<number | null>(null);
     const nextRoundTriggeredRef = useRef(false);
     const initializedRoundRef = useRef<number | null>(null);
+    const hasReceivedSyncRef = useRef(false);
 
     // ============================================================
-    // 👉 NOVO: Hvatamo "snapshot" najnovijeg state-a kako bismo
-    // izbegli infinite loop u Broadcast Listeneru
+    // SNAPSHOT NAJNOVIJEG STANJA ZA REFRESH SYNC
     // ============================================================
     const stateSnapshot = useRef({
         currentQuestionIndex,
         phase,
-        timeLeft,
-        transitionTimer,
-        summaryTimeLeft,
+        answerExpiresAt,
+        revealExpiresAt,
+        summaryExpiresAt,
         blueScore,
         redScore,
         myAnswer,
@@ -91,9 +95,9 @@ export function KoZnaZna({
         stateSnapshot.current = {
             currentQuestionIndex,
             phase,
-            timeLeft,
-            transitionTimer,
-            summaryTimeLeft,
+            answerExpiresAt,
+            revealExpiresAt,
+            summaryExpiresAt,
             blueScore,
             redScore,
             myAnswer,
@@ -101,7 +105,19 @@ export function KoZnaZna({
             questionResults,
             questionPoints,
         };
-    });
+    }, [
+        currentQuestionIndex,
+        phase,
+        answerExpiresAt,
+        revealExpiresAt,
+        summaryExpiresAt,
+        blueScore,
+        redScore,
+        myAnswer,
+        oppAnswer,
+        questionResults,
+        questionPoints,
+    ]);
 
     // ============================================================
     // 1. INIT / RESET RUNDE
@@ -115,21 +131,31 @@ export function KoZnaZna({
         }
         initializedRoundRef.current = round;
 
+        const now = Date.now();
+
         setQuestions(incomingQuestions);
         setCurrentQuestionIndex(0);
         setPhase("answering");
+
+        setAnswerExpiresAt(now + 20 * 1000);
+        setRevealExpiresAt(0);
+        setSummaryExpiresAt(0);
+
         setTimeLeft(20);
         setTransitionTimer(3);
         setSummaryTimeLeft(10);
+
         setBlueScore(0);
         setRedScore(0);
         setMyAnswer(null);
         setOppAnswer(null);
         setQuestionResults(Array(incomingQuestions.length).fill("none"));
         setQuestionPoints({ blue: 0, red: 0 });
-        questionStartTime.current = Date.now();
+
+        questionStartTime.current = now;
         evaluatedQuestionRef.current = null;
         nextRoundTriggeredRef.current = false;
+        hasReceivedSyncRef.current = false;
     }, [data, round]);
 
     // ============================================================
@@ -138,8 +164,13 @@ export function KoZnaZna({
     useEffect(() => {
         if (!incomingBroadcast || incomingBroadcast.role === myRole) return;
 
-        // Čitamo trenutno stanje direktno iz ref-a, 
-        // kako ne bismo izazvali re-render ukoliko se nešto promeni!
+        if (
+            typeof incomingBroadcast.round === "number" &&
+            incomingBroadcast.round !== round
+        ) {
+            return;
+        }
+
         const state = stateSnapshot.current;
 
         if (incomingBroadcast.type === "KZK_MOVE") {
@@ -153,14 +184,26 @@ export function KoZnaZna({
             setMyAnswer(null);
             setOppAnswer(null);
             setPhase("answering");
-            setTimeLeft(20);
-            setTransitionTimer(3);
             setQuestionPoints({ blue: 0, red: 0 });
             evaluatedQuestionRef.current = null;
-            
-            questionStartTime.current = typeof incomingBroadcast.questionStartTime === "number" 
-                ? incomingBroadcast.questionStartTime 
-                : Date.now();
+
+            const newStart =
+                typeof incomingBroadcast.questionStartTime === "number"
+                    ? incomingBroadcast.questionStartTime
+                    : Date.now();
+
+            const newAnswerExpiresAt =
+                typeof incomingBroadcast.answerExpiresAt === "number"
+                    ? incomingBroadcast.answerExpiresAt
+                    : newStart + 20 * 1000;
+
+            questionStartTime.current = newStart;
+            setAnswerExpiresAt(newAnswerExpiresAt);
+            setRevealExpiresAt(0);
+            setTimeLeft(
+                Math.max(0, Math.ceil((newAnswerExpiresAt - Date.now()) / 1000))
+            );
+            setTransitionTimer(3);
             return;
         }
 
@@ -180,89 +223,153 @@ export function KoZnaZna({
 
             setBlueScore(incomingBroadcast.blueScore);
             setRedScore(incomingBroadcast.redScore);
-            setMyAnswer(incomingBroadcast.myAnswer ?? null);
-            setOppAnswer(incomingBroadcast.oppAnswer ?? null);
+
+            if (myRole === "blue") {
+                setMyAnswer(incomingBroadcast.myAnswer ?? null);
+                setOppAnswer(incomingBroadcast.oppAnswer ?? null);
+            } else {
+                setMyAnswer(incomingBroadcast.oppAnswer ?? null);
+                setOppAnswer(incomingBroadcast.myAnswer ?? null);
+            }
+
             setPhase("revealing");
-            setTransitionTimer(3);
+
+            const newRevealExpiresAt =
+                typeof incomingBroadcast.revealExpiresAt === "number"
+                    ? incomingBroadcast.revealExpiresAt
+                    : Date.now() + 3 * 1000;
+
+            setRevealExpiresAt(newRevealExpiresAt);
+            setTransitionTimer(
+                Math.max(0, Math.ceil((newRevealExpiresAt - Date.now()) / 1000))
+            );
 
             evaluatedQuestionRef.current = state.currentQuestionIndex;
 
             if (myRole !== "blue") {
                 onScoreSubmit(incomingBroadcast.redDelta, incomingBroadcast.blueDelta);
             }
+
             return;
         }
 
-        // SYNC REQUEST
+        if (incomingBroadcast.type === "KZK_INTERMISSION") {
+            const newSummaryExpiresAt =
+                typeof incomingBroadcast.summaryExpiresAt === "number"
+                    ? incomingBroadcast.summaryExpiresAt
+                    : Date.now() + 10 * 1000;
+
+            setPhase("intermission");
+            setSummaryExpiresAt(newSummaryExpiresAt);
+            setSummaryTimeLeft(
+                Math.max(0, Math.ceil((newSummaryExpiresAt - Date.now()) / 1000))
+            );
+            return;
+        }
+
         if (incomingBroadcast.type === "KZK_SYNC_REQUEST") {
             sendBroadcast({
                 type: "KZK_SYNC_RESPONSE",
                 role: myRole,
+                round,
 
                 currentQuestionIndex: state.currentQuestionIndex,
                 phase: state.phase,
-                
-                timeLeft: state.timeLeft,
-                transitionTimer: state.transitionTimer,
-                summaryTimeLeft: state.summaryTimeLeft,
+
+                answerExpiresAt: state.answerExpiresAt,
+                revealExpiresAt: state.revealExpiresAt,
+                summaryExpiresAt: state.summaryExpiresAt,
 
                 blueScore: state.blueScore,
                 redScore: state.redScore,
 
-                myAnswer: state.myAnswer,
-                oppAnswer: state.oppAnswer,
+                myAnswer: state.oppAnswer,
+                oppAnswer: state.myAnswer,
 
                 questionResults: state.questionResults,
                 questionPoints: state.questionPoints,
-                
+
                 questionStartTime: questionStartTime.current,
             });
+
             return;
         }
 
-        // SYNC RESPONSE
         if (incomingBroadcast.type === "KZK_SYNC_RESPONSE") {
+            if (hasReceivedSyncRef.current) return;
+            hasReceivedSyncRef.current = true;
+
             setCurrentQuestionIndex(incomingBroadcast.currentQuestionIndex);
             setPhase(incomingBroadcast.phase);
-            
-            setTimeLeft(incomingBroadcast.timeLeft);
-            if (incomingBroadcast.transitionTimer !== undefined) setTransitionTimer(incomingBroadcast.transitionTimer);
-            if (incomingBroadcast.summaryTimeLeft !== undefined) setSummaryTimeLeft(incomingBroadcast.summaryTimeLeft);
+
+            if (typeof incomingBroadcast.answerExpiresAt === "number") {
+                setAnswerExpiresAt(incomingBroadcast.answerExpiresAt);
+                setTimeLeft(
+                    Math.max(
+                        0,
+                        Math.ceil((incomingBroadcast.answerExpiresAt - Date.now()) / 1000)
+                    )
+                );
+            }
+
+            if (typeof incomingBroadcast.revealExpiresAt === "number") {
+                setRevealExpiresAt(incomingBroadcast.revealExpiresAt);
+                setTransitionTimer(
+                    Math.max(
+                        0,
+                        Math.ceil((incomingBroadcast.revealExpiresAt - Date.now()) / 1000)
+                    )
+                );
+            }
+
+            if (typeof incomingBroadcast.summaryExpiresAt === "number") {
+                setSummaryExpiresAt(incomingBroadcast.summaryExpiresAt);
+                setSummaryTimeLeft(
+                    Math.max(
+                        0,
+                        Math.ceil((incomingBroadcast.summaryExpiresAt - Date.now()) / 1000)
+                    )
+                );
+            }
 
             setBlueScore(incomingBroadcast.blueScore);
             setRedScore(incomingBroadcast.redScore);
             setQuestionResults(incomingBroadcast.questionResults ?? []);
             setQuestionPoints(incomingBroadcast.questionPoints ?? { blue: 0, red: 0 });
 
-            setMyAnswer(incomingBroadcast.oppAnswer ?? null);
-            setOppAnswer(incomingBroadcast.myAnswer ?? null);
+            setMyAnswer(incomingBroadcast.myAnswer ?? null);
+            setOppAnswer(incomingBroadcast.oppAnswer ?? null);
 
             if (typeof incomingBroadcast.questionStartTime === "number") {
                 questionStartTime.current = incomingBroadcast.questionStartTime;
             }
 
-            if (incomingBroadcast.phase === "revealing" || incomingBroadcast.phase === "intermission") {
+            if (
+                incomingBroadcast.phase === "revealing" ||
+                incomingBroadcast.phase === "intermission"
+            ) {
                 evaluatedQuestionRef.current = incomingBroadcast.currentQuestionIndex;
             } else {
                 evaluatedQuestionRef.current = null;
             }
-            
+
             nextRoundTriggeredRef.current = false;
             return;
         }
-        
-    // 👉 OVO JE BIO PROBLEM: Ovde ostaje isključivo incomingBroadcast
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [incomingBroadcast, myRole]); 
+    }, [incomingBroadcast, myRole, round]);
 
     // ============================================================
     // 3. REQUEST SYNC
     // ============================================================
     useEffect(() => {
         if (!questions.length) return;
+
+        hasReceivedSyncRef.current = false;
+
         sendBroadcast({
             type: "KZK_SYNC_REQUEST",
             role: myRole,
+            round,
         });
     }, [questions.length, round]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -272,24 +379,42 @@ export function KoZnaZna({
     useEffect(() => {
         if (phase !== "answering") return;
 
-        onTimerTick(timeLeft);
+        const tick = () => {
+            const remaining = Math.max(
+                0,
+                Math.ceil((answerExpiresAt - Date.now()) / 1000)
+            );
 
-        if (myAnswer !== null && oppAnswer !== null) {
-            if (myRole === "blue") evaluateQuestion();
-            return;
-        }
+            setTimeLeft(remaining);
+            onTimerTick(remaining);
 
-        if (timeLeft <= 0) {
-            if (myRole === "blue") evaluateQuestion();
-            return;
-        }
+            if (myAnswer !== null && oppAnswer !== null) {
+                if (myRole === "blue") evaluateQuestion();
+                return true;
+            }
+
+            if (remaining <= 0) {
+                if (myRole === "blue") evaluateQuestion();
+                return true;
+            }
+
+            return false;
+        };
+
+        if (tick()) return;
 
         const timer = setInterval(() => {
-            setTimeLeft((prev) => (prev <= 1 ? 0 : prev - 1));
-        }, 1000);
+            if (tick()) clearInterval(timer);
+        }, 250);
 
         return () => clearInterval(timer);
-    }, [timeLeft, phase, myAnswer, oppAnswer, myRole]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [
+        answerExpiresAt,
+        phase,
+        myAnswer,
+        oppAnswer,
+        myRole
+    ]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ============================================================
     // 5. EVALUACIJA
@@ -319,17 +444,17 @@ export function KoZnaZna({
             } else if (redAnswer!.time < blueAnswer!.time) {
                 blueDelta = 0; redDelta = 6;
             } else {
-                blueDelta = 6; redDelta = 6;
+                blueDelta = 0; redDelta = 0;
             }
         } else if (blueCorrect) {
             blueDelta = 6;
-            if (redAnswer !== null) redDelta = -3;
+            if (redAnswer !== null) {redScore === 0 ? redDelta = 0 : redDelta = -3};
         } else if (redCorrect) {
             redDelta = 6;
-            if (blueAnswer !== null) blueDelta = -3;
+            if (blueAnswer !== null) {blueDelta === 0 ? blueDelta = 0 : blueDelta = -3};
         } else {
-            if (blueAnswer !== null) blueDelta = -3;
-            if (redAnswer !== null) redDelta = -3;
+            if (blueAnswer !== null) {blueDelta === 0 ? blueDelta = 0 : blueDelta = -3};
+            if (redAnswer !== null) {redDelta === 0 ? redDelta = 0 : redDelta = -3};
         }
 
         let questionResult: QuestionResult = "gray";
@@ -347,9 +472,12 @@ export function KoZnaZna({
             return updated;
         });
 
+        const newRevealExpiresAt = Date.now() + 3 * 1000;
+
         setBlueScore(newBlueScore);
         setRedScore(newRedScore);
         setPhase("revealing");
+        setRevealExpiresAt(newRevealExpiresAt);
         setTransitionTimer(3);
 
         onScoreSubmit(blueDelta, redDelta);
@@ -357,6 +485,7 @@ export function KoZnaZna({
         sendBroadcast({
             type: "KZK_RESULT",
             role: myRole,
+            round,
             questionIndex: currentQuestionIndex,
             blueDelta,
             redDelta,
@@ -365,6 +494,7 @@ export function KoZnaZna({
             questionResult,
             myAnswer: blueAnswer,
             oppAnswer: redAnswer,
+            revealExpiresAt: newRevealExpiresAt,
         });
     }
 
@@ -374,45 +504,89 @@ export function KoZnaZna({
     useEffect(() => {
         if (phase !== "revealing") return;
 
-        onTimerTick(transitionTimer);
+        const tick = () => {
+            const remaining = Math.max(
+                0,
+                Math.ceil((revealExpiresAt - Date.now()) / 1000)
+            );
 
-        if (transitionTimer <= 0) {
-            const nextIndex = currentQuestionIndex + 1;
-            if (nextIndex < questions.length) {
-                startNextQuestion(nextIndex);
-            } else {
-                setPhase("intermission");
-                setSummaryTimeLeft(10);
+            setTransitionTimer(remaining);
+            onTimerTick(remaining);
+
+            if (remaining <= 0) {
+                const nextIndex = currentQuestionIndex + 1;
+
+                if (nextIndex < questions.length) {
+                    if (myRole === "blue") {
+                        startNextQuestion(nextIndex);
+                    }
+                } else {
+                    const newSummaryExpiresAt = Date.now() + 10 * 1000;
+
+                    setPhase("intermission");
+                    setSummaryExpiresAt(newSummaryExpiresAt);
+                    setSummaryTimeLeft(10);
+
+                    if (myRole === "blue") {
+                        sendBroadcast({
+                            type: "KZK_INTERMISSION",
+                            role: myRole,
+                            round,
+                            summaryExpiresAt: newSummaryExpiresAt,
+                        });
+                    }
+                }
+
+                return true;
             }
-            return;
-        }
+
+            return false;
+        };
+
+        if (tick()) return;
 
         const timer = setInterval(() => {
-            setTransitionTimer((prev) => (prev <= 1 ? 0 : prev - 1));
-        }, 1000);
+            if (tick()) clearInterval(timer);
+        }, 250);
 
         return () => clearInterval(timer);
-    }, [phase, transitionTimer, currentQuestionIndex, questions.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [
+        phase,
+        revealExpiresAt,
+        currentQuestionIndex,
+        questions.length,
+        myRole
+    ]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ============================================================
     // 7. START NEXT QUESTION
     // ============================================================
     function startNextQuestion(index: number) {
+        const newQuestionStartTime = Date.now();
+        const newAnswerExpiresAt = newQuestionStartTime + 20 * 1000;
+
         setCurrentQuestionIndex(index);
         setMyAnswer(null);
         setOppAnswer(null);
         setQuestionPoints({ blue: 0, red: 0 });
         setPhase("answering");
+
+        setAnswerExpiresAt(newAnswerExpiresAt);
+        setRevealExpiresAt(0);
+
         setTimeLeft(20);
         setTransitionTimer(3);
-        questionStartTime.current = Date.now();
+
+        questionStartTime.current = newQuestionStartTime;
         evaluatedQuestionRef.current = null;
 
         sendBroadcast({
             type: "KZK_NEXT_QUESTION",
             role: myRole,
+            round,
             questionIndex: index,
-            questionStartTime: questionStartTime.current,
+            questionStartTime: newQuestionStartTime,
+            answerExpiresAt: newAnswerExpiresAt,
         });
     }
 
@@ -421,23 +595,37 @@ export function KoZnaZna({
     // ============================================================
     useEffect(() => {
         if (phase !== "intermission") return;
+        if (summaryExpiresAt <= 0) return;
 
-        onTimerTick(summaryTimeLeft);
+        const tick = () => {
+            const remaining = Math.max(
+                0,
+                Math.ceil((summaryExpiresAt - Date.now()) / 1000)
+            );
 
-        if (summaryTimeLeft <= 0) {
-            if (myRole === "blue" && !nextRoundTriggeredRef.current) {
-                nextRoundTriggeredRef.current = true;
-                onNextRound(2);
+            setSummaryTimeLeft(remaining);
+            onTimerTick(remaining);
+
+            if (remaining <= 0) {
+                if (myRole === "blue" && !nextRoundTriggeredRef.current) {
+                    nextRoundTriggeredRef.current = true;
+                    onNextRound(2);
+                }
+
+                return true;
             }
-            return;
-        }
+
+            return false;
+        };
+
+        if (tick()) return;
 
         const timer = setInterval(() => {
-            setSummaryTimeLeft((prev) => (prev <= 1 ? 0 : prev - 1));
-        }, 1000);
+            if (tick()) clearInterval(timer);
+        }, 250);
 
         return () => clearInterval(timer);
-    }, [phase, summaryTimeLeft, myRole]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [phase, summaryExpiresAt, myRole]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ============================================================
     // 9. HANDLE OPTION CLICK
@@ -457,6 +645,7 @@ export function KoZnaZna({
         sendBroadcast({
             type: "KZK_MOVE",
             role: myRole,
+            round,
             questionIndex: currentQuestionIndex,
             answer: answerData,
         });

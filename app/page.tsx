@@ -24,7 +24,7 @@ export default async function Home() {
     <main className="phone-frame relative flex flex-col justify-between px-6 pt-10 pb-6 min-h-[100dvh] bg-background z-0 overflow-hidden">
       
       {/* Realtime listener za pozive koji iskace preko celog ekrana */}
-      <GameInviteListener currentUserId={profile.id} />
+      <GameInviteListener currentUserId={profile.id}  />
 
       {/* --- POZADINSKI SJAJ (GLOW) --- */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] bg-primary/15 blur-[100px] rounded-full pointer-events-none -z-10"></div>

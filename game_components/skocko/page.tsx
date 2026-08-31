@@ -37,7 +37,9 @@ export function Skocko({
     // Faze: potez nosioca runde -> šansa za protivnika -> kraj runde
     const [phase, setPhase] = useState<"primary_turn" | "secondary_turn" | "intermission">("primary_turn");
     
-    const [gameTimeLeft, setGameTimeLeft] = useState(60);
+    // Timestampovi su source of truth za tajmere, da refresh ne resetuje vrijeme.
+    const [gameExpiresAt, setGameExpiresAt] = useState(() => Date.now() + 60 * 1000);
+    const [intermissionExpiresAt, setIntermissionExpiresAt] = useState(0);
     const [intermissionTimeLeft, setIntermissionTimeLeft] = useState(10);
 
     // 7 redova umesto 6 (6 za primarnog igrača, 1 za protivnika)
@@ -49,6 +51,7 @@ export function Skocko({
 
     const [finalScores, setFinalScores] = useState({ blue: 0, red: 0 });
     const scoreSubmitted = useRef(false);
+    const hasReceivedSyncRef = useRef(false);
 
     // Određujemo čija je prva faza (Runda 1 -> Plavi, Runda 2 -> Crveni)
     const isPrimary = (round === 1 && myRole === "blue") || (round === 2 && myRole === "red");
@@ -56,23 +59,141 @@ export function Skocko({
     // Da li smem JA da klikam na tablu u ovom trenutku?
     const canPlay = (isPrimary && phase === "primary_turn") || (!isPrimary && phase === "secondary_turn");
 
+    const gameSnapshot = useRef({
+        phase,
+        gameExpiresAt,
+        intermissionExpiresAt,
+        rows,
+        hints,
+        currentRow,
+        currentCol,
+        finalScores,
+    });
+
     // ================= 1. INICIJALIZACIJA RUNDE =================
     useEffect(() => {
         setRows(Array.from({ length: 7 }, () => Array(4).fill("")));
         setHints(Array.from({ length: 7 }, () => Array(4).fill("none")));
         setCurrentRow(0);
         setCurrentCol(0);
-        setGameTimeLeft(60);
+        setGameExpiresAt(Date.now() + 60 * 1000);
+        setIntermissionExpiresAt(0);
         setIntermissionTimeLeft(10);
         setPhase("primary_turn");
         setFinalScores({ blue: 0, red: 0 });
         scoreSubmitted.current = false;
-    }, [data, round]);
+        hasReceivedSyncRef.current = false;
+    }, [data.secretCode.join(","), round]);
+
+    useEffect(() => {
+        gameSnapshot.current = {
+            phase,
+            gameExpiresAt,
+            intermissionExpiresAt,
+            rows,
+            hints,
+            currentRow,
+            currentCol,
+            finalScores,
+        };
+    }, [
+        phase,
+        gameExpiresAt,
+        intermissionExpiresAt,
+        rows,
+        hints,
+        currentRow,
+        currentCol,
+        finalScores,
+    ]);
+
+    useEffect(() => {
+        hasReceivedSyncRef.current = false;
+
+        sendBroadcast({
+            type: "SKOCKO_SYNC_REQUEST",
+            role: myRole,
+            round,
+        });
+    }, [myRole, round]);
 
     // ================= 2. BEZBEDNI SLUŠALAC BROADCAST PORUKA =================
     useEffect(() => {
-        // Ignorišemo sopstvene poruke
         if (!incomingBroadcast || incomingBroadcast.role === myRole) return;
+
+        if (
+            typeof incomingBroadcast.round === "number" &&
+            incomingBroadcast.round !== round
+        ) {
+            return;
+        }
+
+        if (incomingBroadcast.type === "SKOCKO_SYNC_REQUEST") {
+            const snapshot = gameSnapshot.current;
+
+            sendBroadcast({
+                type: "SKOCKO_SYNC_RESPONSE",
+                role: myRole,
+                round,
+                phase: snapshot.phase,
+                gameExpiresAt: snapshot.gameExpiresAt,
+                intermissionExpiresAt: snapshot.intermissionExpiresAt,
+                rows: snapshot.rows,
+                hints: snapshot.hints,
+                currentRow: snapshot.currentRow,
+                currentCol: snapshot.currentCol,
+                finalScores: snapshot.finalScores,
+            });
+
+            return;
+        }
+
+        if (incomingBroadcast.type === "SKOCKO_SYNC_RESPONSE") {
+            if (hasReceivedSyncRef.current) return;
+            hasReceivedSyncRef.current = true;
+
+            if (
+                incomingBroadcast.phase === "primary_turn" ||
+                incomingBroadcast.phase === "secondary_turn" ||
+                incomingBroadcast.phase === "intermission"
+            ) {
+                setPhase(incomingBroadcast.phase);
+            }
+
+            if (typeof incomingBroadcast.gameExpiresAt === "number") {
+                setGameExpiresAt(incomingBroadcast.gameExpiresAt);
+            }
+
+            if (typeof incomingBroadcast.intermissionExpiresAt === "number") {
+                setIntermissionExpiresAt(incomingBroadcast.intermissionExpiresAt);
+            }
+
+            if (Array.isArray(incomingBroadcast.rows)) {
+                setRows(incomingBroadcast.rows);
+            }
+
+            if (Array.isArray(incomingBroadcast.hints)) {
+                setHints(incomingBroadcast.hints);
+            }
+
+            if (typeof incomingBroadcast.currentRow === "number") {
+                setCurrentRow(incomingBroadcast.currentRow);
+            }
+
+            if (typeof incomingBroadcast.currentCol === "number") {
+                setCurrentCol(incomingBroadcast.currentCol);
+            }
+
+            if (incomingBroadcast.finalScores) {
+                setFinalScores(incomingBroadcast.finalScores);
+            }
+
+            if (incomingBroadcast.phase === "intermission") {
+                scoreSubmitted.current = true;
+            }
+
+            return;
+        }
 
         if (incomingBroadcast.type === "SKOCKO_SYNC") {
             setRows(incomingBroadcast.rows);
@@ -86,59 +207,103 @@ export function Skocko({
             setPhase("secondary_turn");
             setCurrentRow(6);
             setCurrentCol(0);
-            setGameTimeLeft(15);
+            setGameExpiresAt(
+                typeof incomingBroadcast.gameExpiresAt === "number"
+                    ? incomingBroadcast.gameExpiresAt
+                    : Date.now() + 15 * 1000
+            );
         } 
         else if (incomingBroadcast.type === "SKOCKO_END_ROUND") {
             setRows(incomingBroadcast.rows);
             setHints(incomingBroadcast.hints);
             setFinalScores({ blue: incomingBroadcast.bluePts, red: incomingBroadcast.redPts });
+            setIntermissionExpiresAt(
+                typeof incomingBroadcast.intermissionExpiresAt === "number"
+                    ? incomingBroadcast.intermissionExpiresAt
+                    : Date.now() + 10 * 1000
+            );
+            setIntermissionTimeLeft(10);
             setPhase("intermission");
         }
-    }, [incomingBroadcast, myRole]);
+    }, [incomingBroadcast, myRole, round]);
 
     // ================= 3. TAJMER IGRE =================
     useEffect(() => {
-        if (phase === "primary_turn" || phase === "secondary_turn") {
-            onTimerTick(gameTimeLeft);
+        if (phase !== "primary_turn" && phase !== "secondary_turn") return;
 
-            if (gameTimeLeft > 0) {
-                const timer = setInterval(() => setGameTimeLeft(prev => prev - 1), 1000);
-                return () => clearInterval(timer);
-            } else if (gameTimeLeft === 0) {
-                // Autoritativna provera na timeout (samo igrač na potezu prijavljuje timeout)
+        const tick = () => {
+            const timeLeft = Math.max(
+                0,
+                Math.ceil((gameExpiresAt - Date.now()) / 1000)
+            );
+
+            onTimerTick(timeLeft);
+
+            if (timeLeft <= 0) {
                 if (isPrimary && phase === "primary_turn") {
                     triggerSecondaryTurn(rows, hints);
                 } else if (!isPrimary && phase === "secondary_turn") {
                     triggerEndRound(0, rows, hints);
                 }
+
+                return true;
             }
-        }
-    }, [gameTimeLeft, phase, isPrimary]);
+
+            return false;
+        };
+
+        if (tick()) return;
+
+        const timer = setInterval(() => {
+            if (tick()) clearInterval(timer);
+        }, 250);
+
+        return () => clearInterval(timer);
+    }, [gameExpiresAt, phase, isPrimary, rows, hints]);
 
     // ================= 4. TAJMER INTERMISIJE =================
     useEffect(() => {
-        if (phase === "intermission") {
-            // Bezbedno slanje poena tačno jednom
-            if (!scoreSubmitted.current) {
-                scoreSubmitted.current = true;
-                onScoreSubmit(finalScores.blue, finalScores.red);
+        if (phase !== "intermission") return;
+
+        if (!scoreSubmitted.current) {
+            scoreSubmitted.current = true;
+            onScoreSubmit(finalScores.blue, finalScores.red);
+        }
+
+        if (intermissionExpiresAt <= 0) return;
+
+        const tick = () => {
+            const timeLeft = Math.max(
+                0,
+                Math.ceil((intermissionExpiresAt - Date.now()) / 1000)
+            );
+
+            setIntermissionTimeLeft(timeLeft);
+            onTimerTick(timeLeft);
+
+            if (timeLeft <= 0) {
+                onNextRound();
+                return true;
             }
 
-            onTimerTick(intermissionTimeLeft);
-            if (intermissionTimeLeft > 0) {
-                const timer = setInterval(() => setIntermissionTimeLeft(prev => prev - 1), 1000);
-                return () => clearInterval(timer);
-            } else if (intermissionTimeLeft === 0) {
-                onNextRound();
-            }
-        }
-    }, [intermissionTimeLeft, phase]);
+            return false;
+        };
+
+        if (tick()) return;
+
+        const timer = setInterval(() => {
+            if (tick()) clearInterval(timer);
+        }, 250);
+
+        return () => clearInterval(timer);
+    }, [intermissionExpiresAt, phase, finalScores]);
 
     // ================= 5. INTERAKCIJE SA TABLOM =================
     function broadcastSync(newRows: string[][], newHints: string[][], newRow: number, newCol: number) {
         sendBroadcast({
             type: "SKOCKO_SYNC",
             role: myRole,
+            round,
             rows: newRows,
             hints: newHints,
             currentRow: newRow,
@@ -235,15 +400,20 @@ export function Skocko({
 
     // Pomoćne funkcije za prelazak stanja
     function triggerSecondaryTurn(syncRows: string[][], syncHints: string[][]) {
+        const newGameExpiresAt = Date.now() + 15 * 1000;
+
         setPhase("secondary_turn");
         setCurrentRow(6);
         setCurrentCol(0);
-        setGameTimeLeft(15);
+        setGameExpiresAt(newGameExpiresAt);
+
         sendBroadcast({
             type: "SKOCKO_SECONDARY_TURN",
             role: myRole,
+            round,
             rows: syncRows,
-            hints: syncHints
+            hints: syncHints,
+            gameExpiresAt: newGameExpiresAt,
         });
     }
 
@@ -260,16 +430,22 @@ export function Skocko({
             else if (phase === "secondary_turn") bluePts = pts;
         }
 
+        const newIntermissionExpiresAt = Date.now() + 10 * 1000;
+
         setFinalScores({ blue: bluePts, red: redPts });
+        setIntermissionExpiresAt(newIntermissionExpiresAt);
+        setIntermissionTimeLeft(10);
         setPhase("intermission");
-        
+
         sendBroadcast({
             type: "SKOCKO_END_ROUND",
             role: myRole,
+            round,
             bluePts,
             redPts,
             rows: finalRows,
-            hints: finalHints
+            hints: finalHints,
+            intermissionExpiresAt: newIntermissionExpiresAt,
         });
     }
 

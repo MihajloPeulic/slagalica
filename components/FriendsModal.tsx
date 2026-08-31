@@ -7,7 +7,7 @@ import { getFriends } from "@/data/friends";
 import { useRouter } from "next/navigation";
 import { createGameRoom } from "@/actions/game"; // Pretpostavljam putanju do tvoje akcije
 
-export default function FriendsModal() {
+export default function FriendsModal(username: string) {
     const router = useRouter();
 
     // 1. Tabovi i pretraga
@@ -74,7 +74,6 @@ export default function FriendsModal() {
             const res = await createGameRoom(friendId);
             
             if (res?.roomId) {
-                // Čim se soba kreira, preusmeravamo sebe (domaćina) u nju
                 router.push(`/igra/${res.roomId}`);
             } else {
                 console.error("Greška pri kreiranju sobe:", res?.error);

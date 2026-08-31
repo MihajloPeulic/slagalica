@@ -9,6 +9,12 @@ interface NumberTile {
     used: boolean;
 }
 
+type NumberHistoryItem = {
+    type: "number" | "operator";
+    value: string | number;
+    tileId?: string;
+};
+
 interface MojBrojProps {
     myRole: "blue" | "red";
     round: number; // 1 (Plavom pripada runda) ili 2 (Crvenom pripada runda)
@@ -86,13 +92,17 @@ export function MojBroj({
     onTimerTick
 }: MojBrojProps) {
     const [phase, setPhase] = useState<"playing" | "calculating" | "intermission">("playing");
-    const [gameTimeLeft, setGameTimeLeft] = useState(60);
+
+    // Source of truth za vrijeme su timestampovi, ne lokalni countdown.
+    const [gameExpiresAt, setGameExpiresAt] = useState(() => Date.now() + 60 * 1000);
+    const [intermissionExpiresAt, setIntermissionExpiresAt] = useState(0);
     const [intermissionTimeLeft, setIntermissionTimeLeft] = useState(10);
 
     const [tiles, setTiles] = useState<NumberTile[]>([]);
-    const [history, setHistory] = useState<{ type: 'number' | 'operator'; value: string | number; tileId?: string }[]>([]);
+    const [history, setHistory] = useState<NumberHistoryItem[]>([]);
 
     const [isMySubmitted, setIsMySubmitted] = useState(false);
+    const [myFinalExpression, setMyFinalExpression] = useState("");
     const [myFinalResult, setMyFinalResult] = useState<number | null>(null);
 
     const [isOpponentSubmitted, setIsOpponentSubmitted] = useState(false);
@@ -101,70 +111,312 @@ export function MojBroj({
 
     const [roundSummary, setRoundSummary] = useState<any>(null);
 
-    const clickCountRef = useRef(0);
-    const clickTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const deleteHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const didLongPressRef = useRef(false);
+    const isProcessingRoundRef = useRef(false);
+    const hasReceivedSyncRef = useRef(false);
 
     const currentExpression = history.map(item => item.value).join(" ");
 
-    // 1. INICIJALIZACIJA RUNDE
-    useEffect(() => {
-        const newTiles = data.numbers.map((val, idx) => ({
-            id: `num-${idx}`,
-            value: val,
-            used: false,
-        }));
-        setTiles(newTiles);
-        setHistory([]);
-        setIsMySubmitted(false);
-        setIsOpponentSubmitted(false);
-        setMyFinalResult(null);
-        setOpponentFinalResult(null);
-        setOpponentExpression("");
-        setGameTimeLeft(60);
-        setIntermissionTimeLeft(10);
-        setPhase("playing");
-        setRoundSummary(null);
-    }, [data, round]);
+    /*
+        Snapshot sadrži samo state koji smijemo vratiti nakon refresha.
 
-    // 2. SLUŠALAC BROADCAST PORUKA
+        Namjerno NEMA:
+        - history
+        - tiles
+        - currentExpression
+
+        Dakle nepotvrđeni input se uvijek briše.
+
+        myFinalExpression je druga stvar: on postoji tek nakon "Potvrdi",
+        više nije editabilan i potreban je za nastavak/bodovanje runde.
+    */
+    const gameSnapshot = useRef({
+        phase,
+        gameExpiresAt,
+        intermissionExpiresAt,
+        isMySubmitted,
+        myFinalExpression,
+        myFinalResult,
+        isOpponentSubmitted,
+        opponentExpression,
+        opponentFinalResult,
+        roundSummary,
+    });
+
+    // 1. RESET NA POČETKU NOVE RUNDE
+    useEffect(() => {
+        setTiles(
+            data.numbers.map((value, idx) => ({
+                id: `num-${idx}`,
+                value,
+                used: false,
+            }))
+        );
+
+        // Aktivni input se uvijek resetuje.
+        setHistory([]);
+
+        setIsMySubmitted(false);
+        setMyFinalExpression("");
+        setMyFinalResult(null);
+
+        setIsOpponentSubmitted(false);
+        setOpponentExpression("");
+        setOpponentFinalResult(null);
+
+        setRoundSummary(null);
+        setPhase("playing");
+
+        setGameExpiresAt(Date.now() + 60 * 1000);
+        setIntermissionExpiresAt(0);
+        setIntermissionTimeLeft(10);
+
+        isProcessingRoundRef.current = false;
+        hasReceivedSyncRef.current = false;
+    }, [data.target, data.numbers.join(","), round]);
+
+    // 2. SNAPSHOT UVIJEK DRŽI NAJNOVIJE DOZVOLJENO STANJE
+    useEffect(() => {
+        gameSnapshot.current = {
+            phase,
+            gameExpiresAt,
+            intermissionExpiresAt,
+            isMySubmitted,
+            myFinalExpression,
+            myFinalResult,
+            isOpponentSubmitted,
+            opponentExpression,
+            opponentFinalResult,
+            roundSummary,
+        };
+    }, [
+        phase,
+        gameExpiresAt,
+        intermissionExpiresAt,
+        isMySubmitted,
+        myFinalExpression,
+        myFinalResult,
+        isOpponentSubmitted,
+        opponentExpression,
+        opponentFinalResult,
+        roundSummary,
+    ]);
+
+    // 3. REFRESH/MOUNT -> JEDNOM TRAŽI SYNC OD DRUGOG IGRAČA
+    useEffect(() => {
+        hasReceivedSyncRef.current = false;
+
+        sendBroadcast({
+            type: "MOJ_BROJ_SYNC_REQUEST",
+            role: myRole,
+            round,
+        });
+    }, [myRole, round]);
+
+    // 4. BROADCAST LISTENER
     useEffect(() => {
         if (!incomingBroadcast) return;
-        if (incomingBroadcast.type === "SUBMIT_NUMBERS" && incomingBroadcast.role !== myRole) {
+
+        if (
+            typeof incomingBroadcast.round === "number" &&
+            incomingBroadcast.round !== round
+        ) {
+            return;
+        }
+
+        // Protivnik je zaključao svoj rezultat.
+        if (incomingBroadcast.type === "SUBMIT_NUMBERS") {
+            if (incomingBroadcast.role === myRole) return;
+
             setOpponentExpression(incomingBroadcast.expression);
             setOpponentFinalResult(incomingBroadcast.result);
             setIsOpponentSubmitted(true);
+            return;
         }
-    }, [incomingBroadcast, myRole]);
 
-    // 3. TAJMER IGRE
+        // Refresher prima zajednički state.
+        if (incomingBroadcast.type === "MOJ_BROJ_SYNC_RESPONSE") {
+            if (incomingBroadcast.role === myRole) return;
+
+            // Sync response se primjenjuje samo jednom po mountu/rundi.
+            if (hasReceivedSyncRef.current) return;
+            hasReceivedSyncRef.current = true;
+
+            // NEMA vraćanja aktivnog inputa.
+            setHistory([]);
+            setTiles(
+                data.numbers.map((value, idx) => ({
+                    id: `num-${idx}`,
+                    value,
+                    used: false,
+                }))
+            );
+
+            setIsMySubmitted(!!incomingBroadcast.isMySubmitted);
+            setMyFinalExpression(
+                typeof incomingBroadcast.myFinalExpression === "string"
+                    ? incomingBroadcast.myFinalExpression
+                    : ""
+            );
+            setMyFinalResult(
+                typeof incomingBroadcast.myFinalResult === "number"
+                    ? incomingBroadcast.myFinalResult
+                    : null
+            );
+
+            setIsOpponentSubmitted(!!incomingBroadcast.isOpponentSubmitted);
+            setOpponentExpression(
+                typeof incomingBroadcast.opponentExpression === "string"
+                    ? incomingBroadcast.opponentExpression
+                    : ""
+            );
+            setOpponentFinalResult(
+                typeof incomingBroadcast.opponentFinalResult === "number"
+                    ? incomingBroadcast.opponentFinalResult
+                    : null
+            );
+
+            if (
+                incomingBroadcast.phase === "playing" ||
+                incomingBroadcast.phase === "calculating" ||
+                incomingBroadcast.phase === "intermission"
+            ) {
+                setPhase(incomingBroadcast.phase);
+            }
+
+            if (typeof incomingBroadcast.gameExpiresAt === "number") {
+                setGameExpiresAt(incomingBroadcast.gameExpiresAt);
+            }
+
+            if (typeof incomingBroadcast.intermissionExpiresAt === "number") {
+                setIntermissionExpiresAt(incomingBroadcast.intermissionExpiresAt);
+            }
+
+            setRoundSummary(incomingBroadcast.roundSummary ?? null);
+
+            isProcessingRoundRef.current =
+                incomingBroadcast.phase === "calculating" ||
+                incomingBroadcast.phase === "intermission";
+
+            return;
+        }
+
+        // Drugi igrač traži stanje od nas.
+        if (incomingBroadcast.type === "MOJ_BROJ_SYNC_REQUEST") {
+            if (incomingBroadcast.role === myRole) return;
+
+            const snapshot = gameSnapshot.current;
+
+            /*
+                Perspektiva se obrće:
+
+                snapshot.opponent* = state igrača koji traži sync.
+                snapshot.my*       = naš state.
+
+                Zato requester dobija opponent* kao svoj my*.
+            */
+            sendBroadcast({
+                type: "MOJ_BROJ_SYNC_RESPONSE",
+                role: myRole,
+                round,
+
+                phase: snapshot.phase,
+                gameExpiresAt: snapshot.gameExpiresAt,
+                intermissionExpiresAt: snapshot.intermissionExpiresAt,
+
+                isMySubmitted: snapshot.isOpponentSubmitted,
+                myFinalExpression: snapshot.opponentExpression,
+                myFinalResult: snapshot.opponentFinalResult,
+
+                isOpponentSubmitted: snapshot.isMySubmitted,
+                opponentExpression: snapshot.myFinalExpression,
+                opponentFinalResult: snapshot.myFinalResult,
+
+                roundSummary: snapshot.roundSummary,
+            });
+
+            return;
+        }
+    }, [incomingBroadcast, myRole, round, data.numbers]);
+
+    // 5. GAME TIMER - 60 SEKUNDI
     useEffect(() => {
         if (phase !== "playing") return;
-        onTimerTick(gameTimeLeft);
 
-        if (gameTimeLeft > 0 && !(isMySubmitted && isOpponentSubmitted)) {
-            const timer = setInterval(() => setGameTimeLeft(prev => prev - 1), 1000);
-            return () => clearInterval(timer);
-        } 
-        
-        if (gameTimeLeft === 0 || (isMySubmitted && isOpponentSubmitted)) {
-            handleEndRoundProcessing();
-        }
-    }, [gameTimeLeft, isMySubmitted, isOpponentSubmitted, phase]);
+        const tick = () => {
+            const timeLeft = Math.max(
+                0,
+                Math.ceil((gameExpiresAt - Date.now()) / 1000)
+            );
 
-    // 4. TAJMER INTERMISIJE
+            onTimerTick(timeLeft);
+
+            if (
+                timeLeft <= 0 ||
+                (isMySubmitted && isOpponentSubmitted)
+            ) {
+                if (!isProcessingRoundRef.current) {
+                    isProcessingRoundRef.current = true;
+                    handleEndRoundProcessing();
+                }
+
+                return true;
+            }
+
+            return false;
+        };
+
+        if (tick()) return;
+
+        const timer = setInterval(() => {
+            if (tick()) {
+                clearInterval(timer);
+            }
+        }, 250);
+
+        return () => clearInterval(timer);
+    }, [
+        gameExpiresAt,
+        isMySubmitted,
+        isOpponentSubmitted,
+        phase,
+    ]);
+
+    // 6. INTERMISSION TIMER - 10 SEKUNDI
     useEffect(() => {
         if (phase !== "intermission") return;
-        onTimerTick(intermissionTimeLeft);
+        if (intermissionExpiresAt <= 0) return;
 
-        if (intermissionTimeLeft > 0) {
-            const timer = setInterval(() => setIntermissionTimeLeft(prev => prev - 1), 1000);
-            return () => clearInterval(timer);
-        } else if (intermissionTimeLeft === 0) {
-            onNextRound();
-        }
-    }, [intermissionTimeLeft, phase]);
+        const tick = () => {
+            const timeLeft = Math.max(
+                0,
+                Math.ceil((intermissionExpiresAt - Date.now()) / 1000)
+            );
 
-    // 5. KLIKOVI I LOGIKA
+            setIntermissionTimeLeft(timeLeft);
+            onTimerTick(timeLeft);
+
+            if (timeLeft <= 0) {
+                onNextRound();
+                return true;
+            }
+
+            return false;
+        };
+
+        if (tick()) return;
+
+        const timer = setInterval(() => {
+            if (tick()) {
+                clearInterval(timer);
+            }
+        }, 250);
+
+        return () => clearInterval(timer);
+    }, [intermissionExpiresAt, phase]);
+
+    // 7. KLIKOVI I LOGIKA
     function handleNumberClick(tile: NumberTile) {
         if (tile.used || isMySubmitted || phase !== "playing") return;
         const lastAction = history[history.length - 1];
@@ -193,23 +445,41 @@ export function MojBroj({
         setHistory([]);
     }
 
-    function handleBruteforceDelete() {
-        if (isMySubmitted || phase !== "playing") return;
-        clickCountRef.current += 1;
-        if (clickCountRef.current === 3) {
-            if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
-            clickCountRef.current = 0;
-            handleResetExpression();
-        } else {
-            if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
-            clickTimerRef.current = setTimeout(() => {
-                if (clickCountRef.current === 1) handleUndo();
-                clickCountRef.current = 0;
-            }, 300);
+    function handleDeletePressStart() {
+    if (isMySubmitted || phase !== "playing") return;
+
+    didLongPressRef.current = false;
+
+    deleteHoldTimerRef.current = setTimeout(() => {
+        didLongPressRef.current = true;
+        handleResetExpression();
+    }, 500);
+}
+
+    function handleDeletePressEnd() {
+        if (deleteHoldTimerRef.current) {
+            clearTimeout(deleteHoldTimerRef.current);
+            deleteHoldTimerRef.current = null;
         }
+
+        // Ako nije bio long press, briši samo zadnju stavku
+        if (!didLongPressRef.current) {
+            handleUndo();
+        }
+
+        didLongPressRef.current = false;
     }
 
-    // 6. POTVRDA OD STRANE IGRAČA
+    function handleDeletePressCancel() {
+        if (deleteHoldTimerRef.current) {
+            clearTimeout(deleteHoldTimerRef.current);
+            deleteHoldTimerRef.current = null;
+        }
+
+        didLongPressRef.current = false;
+    }
+
+    // 8. POTVRDA OD STRANE IGRAČA
     function handleUserSubmit() {
         if (isMySubmitted || phase !== "playing") return;
         
@@ -220,26 +490,36 @@ export function MojBroj({
         }
 
         setIsMySubmitted(true);
+        setMyFinalExpression(currentExpression);
         setMyFinalResult(res);
 
         sendBroadcast({
             type: "SUBMIT_NUMBERS",
             role: myRole,
+            round,
             expression: currentExpression,
-            result: res
+            result: res,
         });
     }
 
-    // 7. ZAVRŠETAK RUNDE I BODOVANJE
+    // 9. ZAVRŠETAK RUNDE I BODOVANJE
     function handleEndRoundProcessing() {
         setPhase("calculating");
 
-        // Evaluacija ukoliko igrač nije kliknuo Submit a vreme je isteklo
-        const finalMyRes = isMySubmitted ? myFinalResult : evaluateExpression(currentExpression);
-        const finalMyExpr = isMySubmitted ? currentExpression : (finalMyRes ? currentExpression : "Nema rešenja");
-        
+        // Ako smo već submitovali, koristi zaključani finalni izraz.
+        // Ako nismo, timeout koristi samo trenutni LOKALNI input.
+        const finalMyRes = isMySubmitted
+            ? myFinalResult
+            : evaluateExpression(currentExpression);
+
+        const finalMyExpr = isMySubmitted
+            ? (myFinalExpression || "Nema rešenja")
+            : (finalMyRes !== null ? currentExpression : "Nema rešenja");
+
         const finalOppExpr = opponentExpression || "Nema rešenja";
-        const finalOppRes = isOpponentSubmitted ? opponentFinalResult : null;
+        const finalOppRes = isOpponentSubmitted
+            ? opponentFinalResult
+            : null;
 
         const blueRes = myRole === "blue" ? finalMyRes : finalOppRes;
         const blueExpr = myRole === "blue" ? finalMyExpr : finalOppExpr;
@@ -252,10 +532,22 @@ export function MojBroj({
 
         onScoreSubmit(bluePts, redPts);
 
-        setRoundSummary({
-            blueExpr, redExpr, blueRes, redRes, bluePts, redPts, blueDiff, redDiff
-        });
+        const summary = {
+            blueExpr,
+            redExpr,
+            blueRes,
+            redRes,
+            bluePts,
+            redPts,
+            blueDiff,
+            redDiff,
+        };
 
+        setRoundSummary(summary);
+
+        const newIntermissionExpiresAt = Date.now() + 10 * 1000;
+        setIntermissionExpiresAt(newIntermissionExpiresAt);
+        setIntermissionTimeLeft(10);
         setPhase("intermission");
     }
 
@@ -303,8 +595,11 @@ export function MojBroj({
                                     </button>
                                 ))}
                                 <button
-                                    onClick={handleBruteforceDelete}
-                                    className="flex items-center justify-center h-10 px-3 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 transition-all active:scale-95 cursor-pointer"
+                                    onPointerDown={handleDeletePressStart}
+                                    onPointerUp={handleDeletePressEnd}
+                                    onPointerLeave={handleDeletePressCancel}
+                                    onPointerCancel={handleDeletePressCancel}
+                                    className="flex items-center justify-center h-10 px-3 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 transition-all active:scale-95 cursor-pointer touch-none"
                                 >
                                     <RotateCcw className="h-4 w-4" />
                                 </button>
