@@ -479,7 +479,7 @@ export default function GameRoomPage() {
                             6 • Runda {round} / 2
                         </span>
 
-                         {/* {isConnected &&
+                         {isConnected &&
                             gameIndex === 0 &&
                             myRole &&
                             gameState?.rec && (
@@ -493,9 +493,9 @@ export default function GameRoomPage() {
                                     onNextRound={ handleNextRound }
                                     onTimerTick={time => setCurrentHeaderTime(time)}
                                 />
-                            )}  */}
+                            )} 
 
-                            {/* {isConnected &&
+                            {isConnected &&
                             gameIndex === 1 &&
                             myRole &&
                             gameState?.rec && (
@@ -509,9 +509,9 @@ export default function GameRoomPage() {
                                     onNextRound={ handleNextRound }
                                     onTimerTick={time => setCurrentHeaderTime(time)}
                                 />
-                            )}  */}
+                            )} 
 
-                         {/* {isConnected &&
+                         {isConnected &&
                             gameIndex === 2 &&
                             myRole &&
                             gameState?.rec && (
@@ -525,10 +525,10 @@ export default function GameRoomPage() {
                                     onNextRound={ handleNextRound }
                                     onTimerTick={time => setCurrentHeaderTime(time)}
                                 />
-                            )}  */}
+                            )}  
 
 
-                            {/* {isConnected &&
+                             {isConnected &&
                             gameIndex === 3 &&
                             myRole &&
                             gameState?.rec && (
@@ -542,9 +542,9 @@ export default function GameRoomPage() {
                                     onNextRound={ handleNextRound }
                                     onTimerTick={time => setCurrentHeaderTime(time)}
                                 />
-                            )} */}
+                            )} 
 
-                            {/* {isConnected &&
+                             {isConnected &&
                             gameIndex === 4 &&
                             myRole &&
                             gameState?.rec && (
@@ -558,10 +558,10 @@ export default function GameRoomPage() {
                                     onNextRound={ handleNextRound }
                                     onTimerTick={time => setCurrentHeaderTime(time)}
                                 />
-                            )}   */}
+                            )}  
 
                            {isConnected &&
-                            gameIndex === 0 &&
+                            gameIndex === 5 &&
                             myRole &&
                             gameState?.rec && (
                                 <Asocijacije

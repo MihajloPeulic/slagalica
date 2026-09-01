@@ -272,8 +272,22 @@ export function Asocijacije({
         lastAttempt
     ]);
 
+    // Polje je završeno ako je ručno otvoreno ili je njegova kolona riješena.
     const allFieldsOpened =
-        openedFields.length === 16;
+        COLS.every(col =>
+            solvedCols[col] !== null ||
+            [1, 2, 3, 4].every(row =>
+                openedFields.includes(`${col}${row}`)
+            )
+        );
+
+    const hasAnyOpenableField =
+        COLS.some(col =>
+            solvedCols[col] === null &&
+            [1, 2, 3, 4].some(row =>
+                !openedFields.includes(`${col}${row}`)
+            )
+        );
 
     const isMyTurn =
         myRole === activePlayer;
@@ -1045,6 +1059,7 @@ export function Asocijacije({
             !isMyTurn ||
             phase !== "playing" ||
             !canOpenField ||
+            !hasAnyOpenableField ||
             openedFields.includes(
                 field
             ) ||
@@ -1441,7 +1456,7 @@ export function Asocijacije({
                 setLastAttempt(null);
 
                 setCanOpenField(
-                    !allFieldsOpened
+                    hasAnyOpenableField
                 );
 
                 setExpiresAt(
@@ -1488,7 +1503,8 @@ export function Asocijacije({
         phase,
         transitionExpiresAt,
         activePlayer,
-        allFieldsOpened
+        allFieldsOpened,
+        hasAnyOpenableField
     ]);
 
     useEffect(() => {
@@ -1795,7 +1811,10 @@ export function Asocijacije({
             !solved &&
             phase === "playing" &&
             isMyTurn &&
-            !canOpenField &&
+            (
+                !canOpenField ||
+                !hasAnyOpenableField
+            ) &&
             hasOpened &&
             !turnEndingRef.current;
 
@@ -1887,8 +1906,11 @@ export function Asocijacije({
         !finalSolvedBy &&
         phase === "playing" &&
         isMyTurn &&
-        !canOpenField &&
         openedFields.length > 0 &&
+        (
+            !canOpenField ||
+            !hasAnyOpenableField
+        ) &&
         !turnEndingRef.current;
 
     return (

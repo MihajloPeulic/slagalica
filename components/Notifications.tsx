@@ -34,7 +34,7 @@ export default function Notifications() {
             {/* Zvonce Dugme */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`relative transition-colors ${
+                className={`cursor-pointer relative transition-colors ${
                     isOpen 
                         ? "text-text" 
                         : unreadCount > 0 
