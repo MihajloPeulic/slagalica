@@ -2,23 +2,173 @@
 
 import { createServerSupabaseClient } from "@/utils/supabase/server";
 
-function generateLetters() {
-    const alphabet = [
-        ..."AAAAAAIIIIIIOOOOORRRRREEEEENNNNSSSSKKKKTTTTLLLLJJJVVVDDDPPPCCCŠŠMMUUBBZGČĆŽĐ",
+
+async function generateLetters() {
+    const supabase = await createServerSupabaseClient();
+
+    // Težine približno prate učestalost slova.
+    const vowels = [
+        ..."AAAAAAAAAAAA",
+        ..."EEEEEEEEEEE",
+        ..."IIIIIIIIII",
+        ..."OOOOOOOOO",
+        ..."UUUUU",
+    ];
+
+    const consonants = [
+        ..."NNNNNNNN",
+        ..."RRRRRRRR",
+        ..."SSSSSSS",
+        ..."TTTTTTT",
+        ..."KKKKKK",
+        ..."LLLLLL",
+        ..."JJJJJ",
+        ..."VVVVV",
+        ..."DDDDD",
+        ..."PPPP",
+        ..."CCCC",
+        ..."MMMM",
+        ..."BBBB",
+        ..."GGGG",
+        ..."ZZZ",
+        ..."ŠŠŠ",
+        ..."ČČ",
+        ..."ĆĆ",
+        ..."ŽŽ",
+        ..."ĐĐ",
         "LJ",
         "LJ",
         "NJ",
         "NJ",
     ];
 
-    const getRandomLetter = () =>
-        alphabet[Math.floor(Math.random() * alphabet.length)];
+    const randomFrom = (pool: string[]) =>
+        pool[Math.floor(Math.random() * pool.length)];
 
-    return Array.from({ length: 12 }, (_, index) => ({
-        id: `let-${index}-${Date.now()}`,
-        value: getRandomLetter(),
-        used: false,
-    }));
+    function shuffle<T>(array: T[]) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+
+            [array[i], array[j]] = [
+                array[j],
+                array[i],
+            ];
+        }
+
+        return array;
+    }
+
+    function createLetterSet() {
+        // 65% vremena 4 samoglasnika,
+        // 35% vremena 5 samoglasnika.
+        const vowelCount = Math.random() < 0.65 ? 4 : 5;
+        const consonantCount = 12 - vowelCount;
+
+        const letters = [
+            ...Array.from(
+                { length: vowelCount },
+                () => randomFrom(vowels)
+            ),
+            ...Array.from(
+                { length: consonantCount },
+                () => randomFrom(consonants)
+            ),
+        ];
+
+        shuffle(letters);
+
+        const uniqueId = `${Date.now()}-${crypto.randomUUID()}`;
+
+        return letters.map((value, index) => ({
+            id: `let-${uniqueId}-${index}`,
+            value,
+            used: false,
+        }));
+    }
+
+    /*
+        Ne želimo 10-20 RPC poziva.
+
+        3 pokušaja je dovoljno:
+        - ako odmah dobijemo riječ >= 8 slova -> gotovo
+        - inače pokušamo još maksimalno 2 puta
+        - vratimo najbolju kombinaciju
+    */
+    const MAX_ATTEMPTS = 3;
+    const TARGET_WORD_LENGTH = 8;
+
+    let bestResult: {
+        slova: {
+            id: string;
+            value: string;
+            used: boolean;
+        }[];
+        najduza_rec: string | null;
+    } | null = null;
+
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        const arr = createLetterSet();
+
+        const { data: longestWord, error } =
+            await supabase.rpc(
+                "najduza_rijec_od_slova",
+                {
+                    p_slova: arr.map(
+                        item => item.value
+                    ),
+                }
+            );
+
+        if (error) {
+            console.error(
+                "Greška pri traženju najduže riječi:",
+                error
+            );
+
+            continue;
+        }
+
+        const result = {
+            slova: arr,
+            najduza_rec: longestWord ?? null,
+        };
+
+        const currentLength =
+            longestWord?.length ?? 0;
+
+        const bestLength =
+            bestResult?.najduza_rec?.length ?? 0;
+
+        if (
+            !bestResult ||
+            currentLength > bestLength
+        ) {
+            bestResult = result;
+        }
+
+        // Dovoljno dobra kombinacija.
+        // Nema potrebe za dodatnim DB pozivima.
+        if (currentLength >= TARGET_WORD_LENGTH) {
+            return result;
+        }
+    }
+
+    /*
+        Ako nijedan od 3 pokušaja nije imao 8+,
+        uzimamo najbolji koji smo pronašli.
+    */
+    if (bestResult) {
+        return bestResult;
+    }
+
+    /*
+        RPC je potpuno zakazao.
+        Igra i dalje može početi umjesto da pukne.
+    */
+    return {
+        slova: createLetterSet(),
+        najduza_rec: null,
+    };
 }
 
 function generateNumbersRound() {
@@ -95,7 +245,7 @@ const ASOCIJACIJE_FALLBACK = {
 
 // NOVA ASYNC FUNKCIJA KOJA GENERIŠE CEO GAME STATE
 export async function generateFullGameState() {
-    const supabase = await createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient()
     
     // 1. Spojnice
     const { data: dbDataSpojnice, error: errSpojnice } = await supabase.rpc("get_random_spojnice");
@@ -136,7 +286,7 @@ export async function generateFullGameState() {
     }
 
     return {
-        rec: { runda_1: generateLetters(), runda_2: generateLetters() },
+        rec: { runda_1: await generateLetters(), runda_2: await generateLetters() },
         broj: { runda_1: generateNumbersRound(), runda_2: generateNumbersRound() },
         skocko: { runda_1: generateSkockoRound(), runda_2: generateSkockoRound() },
         spojnice: spojniceData,

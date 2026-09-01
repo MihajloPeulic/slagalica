@@ -12,6 +12,12 @@ import {
 
 type Player = "blue" | "red";
 type ColKey = "A" | "B" | "C" | "D";
+
+interface GuessPreview {
+    target: ColKey | "FINAL";
+    value: string;
+    player: Player;
+}
 type Phase =
     | "preparing"
     | "playing"
@@ -181,6 +187,13 @@ export function Asocijacije({
         setIsError
     ] = useState(false);
 
+    // Poslednji pokušaj se kratko prikazuje protivniku
+    // u polju kolone / konačnog rešenja.
+    const [
+        lastAttempt,
+        setLastAttempt
+    ] = useState<GuessPreview | null>(null);
+
     const inputRef =
         useRef<HTMLInputElement>(null);
 
@@ -211,7 +224,8 @@ export function Asocijacije({
         remainingAttempts,
         modalTarget,
         inputValue,
-        isError
+        isError,
+        lastAttempt
     });
 
     useEffect(() => {
@@ -233,7 +247,8 @@ export function Asocijacije({
             remainingAttempts,
             modalTarget,
             inputValue,
-            isError
+            isError,
+            lastAttempt
         };
     }, [
         activePlayer,
@@ -253,7 +268,8 @@ export function Asocijacije({
         remainingAttempts,
         modalTarget,
         inputValue,
-        isError
+        isError,
+        lastAttempt
     ]);
 
     const allFieldsOpened =
@@ -383,6 +399,7 @@ export function Asocijacije({
         );
         setModalTarget(null);
         setInputValue("");
+        setLastAttempt(null);
     }
 
     function triggerCelebration(
@@ -419,6 +436,7 @@ export function Asocijacije({
         );
         setModalTarget(null);
         setInputValue("");
+        setLastAttempt(null);
 
         setSolvedCols(prev => {
             const updated = {
@@ -463,15 +481,13 @@ export function Asocijacije({
                 ...remainingAttempts
             };
 
-            if (
-                attempts[
-                    activePlayer
-                ] > 0
-            ) {
-                attempts[
-                    activePlayer
-                ] -= 1;
-            }
+            // Posle otvaranja svih 16 polja svaki igrač ima
+            // još tačno 2 neuspešna pokušaja / prolaza.
+            attempts[activePlayer] =
+                Math.max(
+                    0,
+                    attempts[activePlayer] - 1
+                );
 
             setRemainingAttempts(
                 attempts
@@ -575,6 +591,7 @@ export function Asocijacije({
         setModalTarget(null);
         setInputValue("");
         setIsError(false);
+        setLastAttempt(null);
 
         turnEndingRef.current =
             false;
@@ -678,7 +695,10 @@ export function Asocijacije({
                     snapshot.inputValue,
 
                 isError:
-                    snapshot.isError
+                    snapshot.isError,
+
+                lastAttempt:
+                    snapshot.lastAttempt
             });
 
             return;
@@ -763,6 +783,10 @@ export function Asocijacije({
 
             setIsError(
                 !!msg.isError
+            );
+
+            setLastAttempt(
+                msg.lastAttempt ?? null
             );
 
             if (
@@ -975,6 +999,19 @@ export function Asocijacije({
         }
 
         if (
+            msg.action ===
+            "GUESS_PREVIEW"
+        ) {
+            setLastAttempt({
+                target: msg.target,
+                value: msg.value,
+                player: msg.player
+            });
+
+            return;
+        }
+
+        if (
             msg.action === "PASS"
         ) {
             handlePassTurnLocal();
@@ -1050,6 +1087,27 @@ export function Asocijacije({
         ) {
             return;
         }
+
+        const submittedValue =
+            inputValue.trim();
+
+        const preview: GuessPreview = {
+            target: modalTarget,
+            value: submittedValue,
+            player: myRole
+        };
+
+        setLastAttempt(preview);
+
+        sendBroadcast({
+            type: "ASOC_MOVE",
+            role: myRole,
+            round,
+            action: "GUESS_PREVIEW",
+            target: modalTarget,
+            value: submittedValue,
+            player: myRole
+        });
 
         const correctAnswers =
             modalTarget ===
@@ -1378,6 +1436,9 @@ export function Asocijacije({
                         ? "red"
                         : "blue"
                 );
+
+                // Pokušaj prethodnog igrača nestaje čim počne novi potez.
+                setLastAttempt(null);
 
                 setCanOpenField(
                     !allFieldsOpened
@@ -1727,6 +1788,9 @@ export function Asocijacije({
             delayMs = 600;
         }
 
+        // Igrač prvo mora otvoriti jedno polje u svom potezu.
+        // Nakon toga može pokušati svaku ranije "aktiviranu" kolonu
+        // (kolonu koja ima bar jedno otvoreno polje).
         const canGuess =
             !solved &&
             phase === "playing" &&
@@ -1734,6 +1798,13 @@ export function Asocijacije({
             !canOpenField &&
             hasOpened &&
             !turnEndingRef.current;
+
+        const opponentPreview =
+            lastAttempt &&
+            lastAttempt.player !== myRole &&
+            lastAttempt.target === col
+                ? lastAttempt
+                : null;
 
         let style =
             "bg-surface/80 border-border text-text-secondary";
@@ -1743,6 +1814,11 @@ export function Asocijacije({
                 solver === "blue"
                     ? "bg-blue-500/20 border-blue-500/50 text-blue-400 shadow-[0_0_12px_rgba(59,130,246,0.25)]"
                     : "bg-red-500/20 border-red-500/50 text-red-400 shadow-[0_0_12px_rgba(239,68,68,0.25)]";
+        } else if (
+            opponentPreview
+        ) {
+            style =
+                "bg-yellow-500/10 border-yellow-500/40 text-yellow-300";
         } else if (
             canGuess
         ) {
@@ -1790,12 +1866,23 @@ export function Asocijacije({
                         ? data.kolone[
                               col
                           ].sol[0]
+                        : opponentPreview
+                        ? opponentPreview.value
                         : `KOLONA ${col}`}
                 </span>
             </button>
         );
     }
 
+    const opponentFinalPreview =
+        lastAttempt &&
+        lastAttempt.player !== myRole &&
+        lastAttempt.target === "FINAL"
+            ? lastAttempt
+            : null;
+
+    // Konačno rešenje je dostupno čim igrač u svom potezu
+    // otvori bilo koje polje.
     const canGuessFinal =
         !finalSolvedBy &&
         phase === "playing" &&
@@ -1880,6 +1967,31 @@ export function Asocijacije({
                     <h2 className="text-base font-black text-text">
                         Završene Asocijacije!
                     </h2>
+
+                    <div className="grid grid-cols-2 gap-2 w-full">
+                        {COLS.map(col => (
+                            <div
+                                key={`summary-${col}`}
+                                className="flex flex-col items-center justify-center px-2 py-2 rounded-xl bg-surface-light border border-border"
+                            >
+                                <span className="text-[8px] font-black uppercase text-text-muted">
+                                    Kolona {col}
+                                </span>
+                                <span className="text-[10px] font-black text-text">
+                                    {data.kolone[col].sol[0]}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="w-full px-3 py-2 rounded-xl bg-primary/10 border border-primary/20">
+                        <div className="text-[8px] font-black uppercase text-text-muted">
+                            Konačno rešenje
+                        </div>
+                        <div className="text-xs font-black text-primary">
+                            {data.konacno[0]}
+                        </div>
+                    </div>
 
                     <div className="flex flex-col gap-2 w-full">
                         <div className="flex justify-between items-center px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20">
@@ -2107,6 +2219,8 @@ export function Asocijacije({
                                           "blue"
                                             ? "bg-blue-500/20 border-blue-500/50 text-blue-400 shadow-[0_0_18px_rgba(59,130,246,0.4)]"
                                             : "bg-red-500/20 border-red-500/50 text-red-400 shadow-[0_0_18px_rgba(239,68,68,0.4)]"
+                                        : opponentFinalPreview
+                                        ? "bg-yellow-500/10 border-yellow-500/40 text-yellow-300"
                                         : canGuessFinal
                                         ? "bg-surface border-primary/40 text-primary hover:bg-primary/10 cursor-pointer"
                                         : "bg-surface/30 border-border/50 text-text-muted cursor-not-allowed"
@@ -2117,6 +2231,8 @@ export function Asocijacije({
                                 {finalSolvedBy
                                     ? data
                                           .konacno[0]
+                                    : opponentFinalPreview
+                                    ? opponentFinalPreview.value
                                     : "KONAČNO REŠENJE"}
                             </span>
                         </button>

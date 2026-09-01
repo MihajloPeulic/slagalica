@@ -40,45 +40,60 @@ function evaluateExpression(expr: string): number | null {
     }
 }
 
-// Računanje poena po Slagalica pravilima sa prednošću nosioca runde
-function calculateNumberScores(target: number, blueRes: number | null, redRes: number | null, round: number) {
+// Bodovanje: pobjednik uvijek dobija 10, gubitnik 0.
+// Ako imaju istu razliku od cilja, prednost ima igrač čija je runda.
+function calculateNumberScores(
+    target: number,
+    blueRes: number | null,
+    redRes: number | null,
+    round: number
+) {
     let bluePts = 0;
     let redPts = 0;
 
-    const blueDiff = blueRes !== null ? Math.abs(target - blueRes) : Infinity;
-    const redDiff = redRes !== null ? Math.abs(target - redRes) : Infinity;
+    const blueDiff =
+        blueRes !== null
+            ? Math.abs(target - blueRes)
+            : Infinity;
 
-    // Ako niko nije predao validan broj, nema bodova
-    if (blueDiff === Infinity && redDiff === Infinity) return { bluePts: 0, redPts: 0, blueDiff, redDiff };
+    const redDiff =
+        redRes !== null
+            ? Math.abs(target - redRes)
+            : Infinity;
 
-    // Slučaj 1: Oba igrača imaju istu razliku (tačan broj ILI isto rastojanje)
-    if (blueDiff === redDiff && blueDiff !== Infinity) {
-        if (round === 1) {
-            // Prva runda je plavog igrača
-            bluePts = 10;
-        } else if (round === 2) {
-            // Druga runda je crvenog igrača
-            redPts = 10;
-        }
-    } 
-    // Slučaj 2: Plavi je bliži
-    else if (blueDiff < redDiff) {
-        if (blueDiff === 0) {
-            bluePts = 10; // Tačan broj
-        } else {
-            bluePts = 5;  // Bliži, ali nije tačan
-        }
-    } 
-    // Slučaj 3: Crveni je bliži
-    else if (redDiff < blueDiff) {
-        if (redDiff === 0) {
-            redPts = 10; // Tačan broj
-        } else {
-            redPts = 5;  // Bliži, ali nije tačan
-        }
+    if (
+        blueDiff === Infinity &&
+        redDiff === Infinity
+    ) {
+        return {
+            bluePts: 0,
+            redPts: 0,
+            blueDiff,
+            redDiff,
+        };
     }
 
-    return { bluePts, redPts, blueDiff, redDiff };
+    if (
+        blueDiff === redDiff &&
+        blueDiff !== Infinity
+    ) {
+        if (round === 1) {
+            bluePts = 10;
+        } else {
+            redPts = 10;
+        }
+    } else if (blueDiff < redDiff) {
+        bluePts = 10;
+    } else if (redDiff < blueDiff) {
+        redPts = 10;
+    }
+
+    return {
+        bluePts,
+        redPts,
+        blueDiff,
+        redDiff,
+    };
 }
 
 export function MojBroj({ 
@@ -91,14 +106,24 @@ export function MojBroj({
     onNextRound,
     onTimerTick
 }: MojBrojProps) {
-    const [phase, setPhase] = useState<"playing" | "calculating" | "intermission">("playing");
+    const [phase, setPhase] = useState<"selecting" | "playing" | "calculating" | "intermission">("selecting");
+
+    const roundStarter: "blue" | "red" = round === 1 ? "blue" : "red";
+    const isRoundStarter = myRole === roundStarter;
+
+    // 5 sekundi za vizuelni izbor brojeva.
+    const [selectionExpiresAt, setSelectionExpiresAt] = useState(() => Date.now() + 5 * 1000);
 
     // Source of truth za vrijeme su timestampovi, ne lokalni countdown.
-    const [gameExpiresAt, setGameExpiresAt] = useState(() => Date.now() + 60 * 1000);
+    const [gameExpiresAt, setGameExpiresAt] = useState(0);
     const [intermissionExpiresAt, setIntermissionExpiresAt] = useState(0);
     const [intermissionTimeLeft, setIntermissionTimeLeft] = useState(10);
 
     const [tiles, setTiles] = useState<NumberTile[]>([]);
+    const [rollingTarget, setRollingTarget] = useState(100);
+    const [rollingNumbers, setRollingNumbers] = useState<number[]>(
+        () => Array.from({ length: data.numbers.length }, () => 1)
+    );
     const [history, setHistory] = useState<NumberHistoryItem[]>([]);
 
     const [isMySubmitted, setIsMySubmitted] = useState(false);
@@ -133,6 +158,7 @@ export function MojBroj({
     */
     const gameSnapshot = useRef({
         phase,
+        selectionExpiresAt,
         gameExpiresAt,
         intermissionExpiresAt,
         isMySubmitted,
@@ -166,9 +192,12 @@ export function MojBroj({
         setOpponentFinalResult(null);
 
         setRoundSummary(null);
-        setPhase("playing");
+        setPhase("selecting");
 
-        setGameExpiresAt(Date.now() + 60 * 1000);
+        setSelectionExpiresAt(Date.now() + 5 * 1000);
+        setGameExpiresAt(0);
+        setRollingTarget(100);
+        setRollingNumbers(Array.from({ length: data.numbers.length }, () => 1));
         setIntermissionExpiresAt(0);
         setIntermissionTimeLeft(10);
 
@@ -180,6 +209,7 @@ export function MojBroj({
     useEffect(() => {
         gameSnapshot.current = {
             phase,
+            selectionExpiresAt,
             gameExpiresAt,
             intermissionExpiresAt,
             isMySubmitted,
@@ -192,6 +222,7 @@ export function MojBroj({
         };
     }, [
         phase,
+        selectionExpiresAt,
         gameExpiresAt,
         intermissionExpiresAt,
         isMySubmitted,
@@ -232,6 +263,19 @@ export function MojBroj({
             setOpponentExpression(incomingBroadcast.expression);
             setOpponentFinalResult(incomingBroadcast.result);
             setIsOpponentSubmitted(true);
+            return;
+        }
+
+        if (incomingBroadcast.type === "MOJ_BROJ_SELECTION_STOP") {
+            if (incomingBroadcast.role === myRole) return;
+
+            const nextGameExpiresAt =
+                typeof incomingBroadcast.gameExpiresAt === "number"
+                    ? incomingBroadcast.gameExpiresAt
+                    : Date.now() + 60 * 1000;
+
+            setGameExpiresAt(nextGameExpiresAt);
+            setPhase("playing");
             return;
         }
 
@@ -278,11 +322,16 @@ export function MojBroj({
             );
 
             if (
+                incomingBroadcast.phase === "selecting" ||
                 incomingBroadcast.phase === "playing" ||
                 incomingBroadcast.phase === "calculating" ||
                 incomingBroadcast.phase === "intermission"
             ) {
                 setPhase(incomingBroadcast.phase);
+            }
+
+            if (typeof incomingBroadcast.selectionExpiresAt === "number") {
+                setSelectionExpiresAt(incomingBroadcast.selectionExpiresAt);
             }
 
             if (typeof incomingBroadcast.gameExpiresAt === "number") {
@@ -322,6 +371,7 @@ export function MojBroj({
                 round,
 
                 phase: snapshot.phase,
+                selectionExpiresAt: snapshot.selectionExpiresAt,
                 gameExpiresAt: snapshot.gameExpiresAt,
                 intermissionExpiresAt: snapshot.intermissionExpiresAt,
 
@@ -340,7 +390,96 @@ export function MojBroj({
         }
     }, [incomingBroadcast, myRole, round, data.numbers]);
 
-    // 5. GAME TIMER - 60 SEKUNDI
+    // 5. VIZUELNO MIJEŠANJE BROJEVA
+    useEffect(() => {
+        if (phase !== "selecting") return;
+
+        const smallNumbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        const largeNumbers = [25, 50, 75, 100];
+
+        const timer = setInterval(() => {
+            setRollingTarget(
+                Math.floor(Math.random() * (999 - 100 + 1)) + 100
+            );
+
+            setRollingNumbers(
+                data.numbers.map((_, index) => {
+                    // Zadnja dva polja često izgledaju kao "veći" brojevi,
+                    // ostala kao standardni mali brojevi.
+                    const useLargePool =
+                        index >= Math.max(0, data.numbers.length - 2);
+
+                    const pool = useLargePool ? largeNumbers : smallNumbers;
+
+                    return pool[
+                        Math.floor(Math.random() * pool.length)
+                    ];
+                })
+            );
+        }, 70);
+
+        return () => clearInterval(timer);
+    }, [phase, data.numbers]);
+
+    function stopNumberSelection() {
+        if (phase !== "selecting") return;
+        if (!isRoundStarter) return;
+
+        const nextGameExpiresAt = Date.now() + 60 * 1000;
+
+        setGameExpiresAt(nextGameExpiresAt);
+        setPhase("playing");
+        onTimerTick(60);
+
+        sendBroadcast({
+            type: "MOJ_BROJ_SELECTION_STOP",
+            role: myRole,
+            round,
+            gameExpiresAt: nextGameExpiresAt,
+        });
+    }
+
+    // 6. TIMER ZA IZBOR - 5 SEKUNDI
+    useEffect(() => {
+        if (phase !== "selecting") return;
+
+        const tick = () => {
+            const timeLeft = Math.max(
+                0,
+                Math.ceil((selectionExpiresAt - Date.now()) / 1000)
+            );
+
+            onTimerTick(timeLeft);
+
+            if (timeLeft <= 0) {
+                if (isRoundStarter) {
+                    stopNumberSelection();
+                }
+
+                return true;
+            }
+
+            return false;
+        };
+
+        if (tick()) return;
+
+        const timer = setInterval(() => {
+            if (tick()) {
+                clearInterval(timer);
+            }
+        }, 100);
+
+        return () => clearInterval(timer);
+    }, [
+        phase,
+        selectionExpiresAt,
+        isRoundStarter,
+        myRole,
+        round,
+    ]);
+
+    // 7. GAME TIMER - 60 SEKUNDI
     useEffect(() => {
         if (phase !== "playing") return;
 
@@ -383,7 +522,7 @@ export function MojBroj({
         phase,
     ]);
 
-    // 6. INTERMISSION TIMER - 10 SEKUNDI
+    // 8. INTERMISSION TIMER - 10 SEKUNDI
     useEffect(() => {
         if (phase !== "intermission") return;
         if (intermissionExpiresAt <= 0) return;
@@ -416,7 +555,7 @@ export function MojBroj({
         return () => clearInterval(timer);
     }, [intermissionExpiresAt, phase]);
 
-    // 7. KLIKOVI I LOGIKA
+    // 9. KLIKOVI I LOGIKA
     function handleNumberClick(tile: NumberTile) {
         if (tile.used || isMySubmitted || phase !== "playing") return;
         const lastAction = history[history.length - 1];
@@ -479,7 +618,7 @@ export function MojBroj({
         didLongPressRef.current = false;
     }
 
-    // 8. POTVRDA OD STRANE IGRAČA
+    // 10. POTVRDA OD STRANE IGRAČA
     function handleUserSubmit() {
         if (isMySubmitted || phase !== "playing") return;
         
@@ -502,7 +641,7 @@ export function MojBroj({
         });
     }
 
-    // 9. ZAVRŠETAK RUNDE I BODOVANJE
+    // 11. ZAVRŠETAK RUNDE I BODOVANJE
     function handleEndRoundProcessing() {
         setPhase("calculating");
 
@@ -553,7 +692,52 @@ export function MojBroj({
 
     return (
         <div className="flex flex-col items-center justify-center w-full max-w-[340px] gap-4 animate-in fade-in zoom-in-95">
-            {phase !== "intermission" ? (
+            {phase === "selecting" ? (
+                <div className="flex flex-col items-center justify-center w-full gap-5">
+                    <div className="text-center">
+                        <div className="text-xs font-black uppercase tracking-[0.18em] text-primary">
+                            Biranje brojeva
+                        </div>
+
+                        <div className="mt-1 text-xs font-medium text-text-secondary">
+                            {isRoundStarter
+                                ? "Pritisni STOP kada želiš"
+                                : `${roundStarter === "blue" ? "Plavi" : "Crveni"} igrač bira brojeve`}
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col items-center">
+                        <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-1">
+                            Traženi broj
+                        </span>
+
+                        <div className="flex items-center justify-center h-[72px] w-[120px] rounded-2xl border-2 border-primary/60 bg-surface/90 shadow-md">
+                            <span className="text-4xl font-black text-primary tracking-tight">
+                                {rollingTarget}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-6 gap-2 w-full">
+                        {rollingNumbers.map((value, index) => (
+                            <div
+                                key={`rolling-number-${index}`}
+                                className="flex h-11 items-center justify-center rounded-xl border border-primary/30 bg-surface text-lg font-black text-text shadow-sm"
+                            >
+                                {value}
+                            </div>
+                        ))}
+                    </div>
+
+                    <button
+                        onClick={stopNumberSelection}
+                        disabled={!isRoundStarter}
+                        className="w-full py-4 rounded-2xl bg-primary text-black font-black text-xl tracking-wider transition-all active:scale-[0.98] shadow-md cursor-pointer disabled:cursor-default disabled:opacity-35"
+                    >
+                        {isRoundStarter ? "STOP" : "ČEKANJE..."}
+                    </button>
+                </div>
+            ) : phase !== "intermission" ? (
                 <>
                     <div className="flex flex-col items-center">
                         <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-1">Traženi broj</span>

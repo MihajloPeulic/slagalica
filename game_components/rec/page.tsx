@@ -4,10 +4,24 @@ import { useEffect, useRef, useState } from "react";
 import { RotateCcw, Sparkles, Check, X, Clock, Trophy } from "lucide-react";
 import { verifyWordAction } from "@/data/game/slagalica";
 
+
+
 interface LetterTile {
     id: string;
     value: string;
     used: boolean;
+}
+
+interface Data {
+    slova: LetterTile[];
+    najduza_rec: string | null;
+}
+
+interface ScoreBreakdown {
+    letters: number;
+    longerWordBonus: number;
+    roundAdvantageBonus: number;
+    computerBonus: number;
 }
 
 interface RoundSummary {
@@ -17,12 +31,15 @@ interface RoundSummary {
     isRedValid: boolean;
     bluePts: number;
     redPts: number;
+    blueBreakdown: ScoreBreakdown;
+    redBreakdown: ScoreBreakdown;
+    longestWord: string;
 }
 
 interface PronadjiRecProps {
     myRole: "blue" | "red";
     round: number;
-    tiles: LetterTile[];
+    tiles: Data;
     sendBroadcast: (payload: any) => void;
     incomingBroadcast?: any;
     onScoreSubmit: (bluePoints: number, redPoints: number) => void;
@@ -35,51 +52,78 @@ function calculateSlagalicaScores(
     isBlueValid: boolean,
     redWord: string,
     isRedValid: boolean,
-    compLen: number = 0,
-    round: number = 1
+    computerWord: string,
+    round: number
 ) {
     const blueLen = isBlueValid ? blueWord.length : 0;
     const redLen = isRedValid ? redWord.length : 0;
-    let bluePoints = 0;
-    let redPoints = 0;
+    const compLen = computerWord?.length ?? 0;
 
-    if (isBlueValid && blueLen > 0) {
-        bluePoints += blueLen;
-    }
+    const blueBreakdown: ScoreBreakdown = {
+        letters: blueLen,
+        longerWordBonus: 0,
+        roundAdvantageBonus: 0,
+        computerBonus: 0,
+    };
 
-    if (isRedValid && redLen > 0) {
-        redPoints += redLen;
-    }
+    const redBreakdown: ScoreBreakdown = {
+        letters: redLen,
+        longerWordBonus: 0,
+        roundAdvantageBonus: 0,
+        computerBonus: 0,
+    };
 
     if (blueLen > redLen) {
-        bluePoints += 6;
+        blueBreakdown.longerWordBonus = 6;
     } else if (redLen > blueLen) {
-        redPoints += 6;
-    } else if (blueLen === redLen && blueLen > 0) {
+        redBreakdown.longerWordBonus = 6;
+    } else if (
+        blueLen === redLen &&
+        blueLen > 0 &&
+        isBlueValid &&
+        isRedValid
+    ) {
         if (round === 1) {
-            bluePoints += 6;
-        } else if (round === 2) {
-            redPoints += 6;
+            blueBreakdown.roundAdvantageBonus = 6;
+        } else {
+            redBreakdown.roundAdvantageBonus = 6;
         }
     }
 
     if (isBlueValid && blueLen > 0 && compLen > 0) {
         if (blueLen > compLen) {
-            bluePoints += 6;
+            blueBreakdown.computerBonus = 6;
         } else if (blueLen === compLen) {
-            bluePoints += 3;
+            blueBreakdown.computerBonus = 3;
         }
     }
 
     if (isRedValid && redLen > 0 && compLen > 0) {
         if (redLen > compLen) {
-            redPoints += 6;
+            redBreakdown.computerBonus = 6;
         } else if (redLen === compLen) {
-            redPoints += 3;
+            redBreakdown.computerBonus = 3;
         }
     }
 
-    return { bluePoints, redPoints, blueLen, redLen };
+    const bluePoints =
+        blueBreakdown.letters +
+        blueBreakdown.longerWordBonus +
+        blueBreakdown.roundAdvantageBonus +
+        blueBreakdown.computerBonus;
+
+    const redPoints =
+        redBreakdown.letters +
+        redBreakdown.longerWordBonus +
+        redBreakdown.roundAdvantageBonus +
+        redBreakdown.computerBonus;
+
+    return {
+        bluePoints,
+        redPoints,
+        blueBreakdown,
+        redBreakdown,
+    };
 }
 
 export function PronadjiRec({
@@ -92,16 +136,27 @@ export function PronadjiRec({
     onNextRound,
     onTimerTick,
 }: PronadjiRecProps) {
-    const [phase, setPhase] = useState<"playing" | "calculating" | "intermission">("playing");
+    const [phase, setPhase] = useState<"selecting" | "playing" | "calculating" | "intermission">("selecting");
 
-    // Timestamp kada timer ističe, NE broj preostalih sekundi.
-    const [gameExpiresAt, setGameExpiresAt] = useState(() => Date.now() + 60 * 1000);
+    const roundStarter: "blue" | "red" = round === 1 ? "blue" : "red";
+    const isRoundStarter = myRole === roundStarter;
+
+    // 5 sekundi za "izbor" slova. Prava slova su već predgenerisana.
+    const [selectionExpiresAt, setSelectionExpiresAt] = useState(() => Date.now() + 5 * 1000);
+
+    // Timestamp kada timer igre ističe.
+    const [gameExpiresAt, setGameExpiresAt] = useState(0);
     const [intermissionExpiresAt, setIntermissionExpiresAt] = useState(0);
 
     // Ovo je samo za prikaz u UI-u.
     const [intermissionTimeLeft, setIntermissionTimeLeft] = useState(10);
 
-    const [tiles, setTiles] = useState<LetterTile[]>([]);
+    const [tiles, setTiles] = useState<LetterTile[]>(
+        () => initialTiles?.slova?.map(tile => ({ ...tile, used: false })) ?? []
+    );
+    const [rollingLetters, setRollingLetters] = useState<string[]>(
+        () => Array.from({ length: 12 }, () => "A")
+    );
     const [history, setHistory] = useState<{ value: string; tileId: string }[]>([]);
     const [myWord, setMyWord] = useState("");
     const [opponentWord, setOpponentWord] = useState<string | null>(null);
@@ -119,7 +174,6 @@ export function PronadjiRec({
 
     const currentWord = history.map(item => item.value).join("");
 
-    console.log(isMySubmitted, myWord)
 
     
     
@@ -130,6 +184,7 @@ export function PronadjiRec({
     */
     const gameSnapshot = useRef({
         phase,
+        selectionExpiresAt,
         gameExpiresAt,
         intermissionExpiresAt,
         myWord,
@@ -140,8 +195,15 @@ export function PronadjiRec({
     });
 
     // 1. RESET NA POČETKU NOVE RUNDE
+    // initialTiles je već razriješen prije renderovanja komponente.
     useEffect(() => {
-        setTiles(initialTiles ? JSON.parse(JSON.stringify(initialTiles)) : []);
+        setTiles(
+            initialTiles?.slova?.map(tile => ({
+                ...tile,
+                used: false,
+            })) ?? []
+        );
+
         setHistory([]);
         setMyWord("");
         setOpponentWord(null);
@@ -150,8 +212,10 @@ export function PronadjiRec({
         setWordStatus(null);
         setIsChecking(false);
         setRoundSummary(null);
-        setPhase("playing");
-        setGameExpiresAt(Date.now() + 60 * 1000);
+        setPhase("selecting");
+        setSelectionExpiresAt(Date.now() + 5 * 1000);
+        setGameExpiresAt(0);
+        setRollingLetters(Array.from({ length: 12 }, () => "A"));
         setIntermissionExpiresAt(0);
         setIntermissionTimeLeft(10);
         isProcessingRoundRef.current = false;
@@ -161,6 +225,7 @@ export function PronadjiRec({
     useEffect(() => {
         gameSnapshot.current = {
             phase,
+            selectionExpiresAt,
             gameExpiresAt,
             intermissionExpiresAt,
             myWord,
@@ -171,6 +236,7 @@ export function PronadjiRec({
         };
     }, [
         phase,
+        selectionExpiresAt,
         gameExpiresAt,
         intermissionExpiresAt,
         myWord,
@@ -185,8 +251,9 @@ export function PronadjiRec({
         sendBroadcast({
             type: "SYNC_REQUEST",
             role: myRole,
+            round,
         });
-    }, [myRole]);
+    }, [myRole, round]);
 
     // 4. BROADCAST LISTENER
     useEffect(() => {
@@ -194,14 +261,39 @@ export function PronadjiRec({
 
         if (incomingBroadcast.type === "SUBMIT_WORD") {
             if (incomingBroadcast.role === myRole) return;
+            if (
+                typeof incomingBroadcast.round === "number" &&
+                incomingBroadcast.round !== round
+            ) return;
             
             setOpponentWord(incomingBroadcast.word);
             setIsOpponentSubmitted(true);
             return;
         }
 
+        if (incomingBroadcast.type === "LETTERS_STOP") {
+            if (incomingBroadcast.role === myRole) return;
+            if (
+                typeof incomingBroadcast.round === "number" &&
+                incomingBroadcast.round !== round
+            ) return;
+
+            const nextGameExpiresAt =
+                typeof incomingBroadcast.gameExpiresAt === "number"
+                    ? incomingBroadcast.gameExpiresAt
+                    : Date.now() + 60 * 1000;
+
+            setGameExpiresAt(nextGameExpiresAt);
+            setPhase("playing");
+            return;
+        }
+
         if (incomingBroadcast.type === "SYNC_RESPONSE") {
             if (incomingBroadcast.role === myRole) return;
+            if (
+                typeof incomingBroadcast.round === "number" &&
+                incomingBroadcast.round !== round
+            ) return;
 
             /*
                 opponentWord koji šalje protivnik = njegova riječ.
@@ -225,11 +317,16 @@ export function PronadjiRec({
             setIsOpponentSubmitted(!!incomingBroadcast.isOpponentSubmitted);
 
             if (
+                incomingBroadcast.phase === "selecting" ||
                 incomingBroadcast.phase === "playing" ||
                 incomingBroadcast.phase === "calculating" ||
                 incomingBroadcast.phase === "intermission"
             ) {
                 setPhase(incomingBroadcast.phase);
+            }
+
+            if (typeof incomingBroadcast.selectionExpiresAt === "number") {
+                setSelectionExpiresAt(incomingBroadcast.selectionExpiresAt);
             }
 
             if (typeof incomingBroadcast.gameExpiresAt === "number") {
@@ -250,13 +347,19 @@ export function PronadjiRec({
         if (incomingBroadcast.type === "SYNC_REQUEST") {
             // Ne odgovaraj na vlastiti request.
             if (incomingBroadcast.role === myRole) return;
+            if (
+                typeof incomingBroadcast.round === "number" &&
+                incomingBroadcast.round !== round
+            ) return;
 
             const snapshot = gameSnapshot.current;
 
             sendBroadcast({
                 type: "SYNC_RESPONSE",
                 role: myRole,
+                round,
                 phase: snapshot.phase,
+                selectionExpiresAt: snapshot.selectionExpiresAt,
                 gameExpiresAt: snapshot.gameExpiresAt,
                 intermissionExpiresAt: snapshot.intermissionExpiresAt,
 
@@ -275,9 +378,95 @@ export function PronadjiRec({
                 roundSummary: snapshot.roundSummary,
             });
         }
-    }, [incomingBroadcast, myRole]);
+    }, [incomingBroadcast, myRole, round]);
 
-    // 5. GAME TIMER - 60 SEKUNDI
+    // 5. VIZUELNO "MIJEŠANJE" SLOVA
+    useEffect(() => {
+        if (phase !== "selecting") return;
+
+        const visualAlphabet = [
+            "A", "E", "I", "O", "U",
+            "N", "R", "S", "T", "K", "L", "J",
+            "V", "D", "P", "C", "M", "B", "G", "Z",
+            "Š", "Č", "Ć", "Ž", "Đ", "LJ", "NJ",
+        ];
+
+        const timer = setInterval(() => {
+            setRollingLetters(
+                Array.from(
+                    { length: 12 },
+                    () => visualAlphabet[
+                        Math.floor(Math.random() * visualAlphabet.length)
+                    ]
+                )
+            );
+        }, 70);
+
+        return () => clearInterval(timer);
+    }, [phase]);
+
+    function stopLetters() {
+        if (phase !== "selecting") return;
+        if (!isRoundStarter) return;
+
+        const nextGameExpiresAt = Date.now() + 60 * 1000;
+
+        setGameExpiresAt(nextGameExpiresAt);
+        setPhase("playing");
+        onTimerTick(60);
+
+        sendBroadcast({
+            type: "LETTERS_STOP",
+            role: myRole,
+            round,
+            gameExpiresAt: nextGameExpiresAt,
+        });
+    }
+
+    // 6. TIMER ZA STOP SLOVA - 5 SEKUNDI
+    useEffect(() => {
+        if (phase !== "selecting") return;
+
+        const tick = () => {
+            const timeLeft = Math.max(
+                0,
+                Math.ceil((selectionExpiresAt - Date.now()) / 1000)
+            );
+
+            onTimerTick(timeLeft);
+
+            if (timeLeft <= 0) {
+                // Starter je autoritativan i šalje trenutak početka igre.
+                if (isRoundStarter) {
+                    stopLetters();
+                }
+
+                return true;
+            }
+
+            return false;
+        };
+
+        if (tick()) return;
+
+        const timer = setInterval(() => {
+            const finished = tick();
+
+            if (finished) {
+                clearInterval(timer);
+            }
+        }, 100);
+
+        return () => clearInterval(timer);
+    }, [
+        phase,
+        selectionExpiresAt,
+        isRoundStarter,
+        myRole,
+        round,
+    ]);
+
+    // 7. GAME TIMER - 60 SEKUNDI
     useEffect(() => {
         if (phase !== "playing") return;
 
@@ -322,7 +511,7 @@ export function PronadjiRec({
         phase,
     ]);
 
-    // 6. INTERMISSION TIMER - 10 SEKUNDI
+    // 8. INTERMISSION TIMER - 10 SEKUNDI
     useEffect(() => {
         if (phase !== "intermission") return;
         if (intermissionExpiresAt <= 0) return;
@@ -357,7 +546,7 @@ export function PronadjiRec({
         return () => clearInterval(timer);
     }, [intermissionExpiresAt, phase]);
 
-    // 7. AUTOMATSKA PROVJERA RIJEČI
+    // 9. AUTOMATSKA PROVJERA RIJEČI
     useEffect(() => {
         if (
             phase !== "playing" ||
@@ -507,11 +696,12 @@ export function PronadjiRec({
         sendBroadcast({
             type: "SUBMIT_WORD",
             role: myRole,
+            round,
             word: finalWord,
         });
     }
 
-    // 8. KRAJ RUNDE I BODOVANJE
+    // 10. KRAJ RUNDE I BODOVANJE
     async function handleEndRoundProcessing() {
         setPhase("calculating");
 
@@ -545,20 +735,19 @@ export function PronadjiRec({
             const isBlueValid = !!blueRes.success;
             const isRedValid = !!redRes.success;
 
-            const compLen =
-                (blueRes as any)?.compLen ||
-                (redRes as any)?.compLen ||
-                0;
+            const longestWord = initialTiles?.najduza_rec ?? "";
 
             const {
                 bluePoints: bluePts,
                 redPoints: redPts,
+                blueBreakdown,
+                redBreakdown,
             } = calculateSlagalicaScores(
                 blueWordStr,
                 isBlueValid,
                 redWordStr,
                 isRedValid,
-                compLen,
+                longestWord,
                 round
             );
 
@@ -571,6 +760,9 @@ export function PronadjiRec({
                 isRedValid,
                 bluePts,
                 redPts,
+                blueBreakdown,
+                redBreakdown,
+                longestWord,
             };
 
             setRoundSummary(summary);
@@ -610,7 +802,53 @@ export function PronadjiRec({
 
     return (
         <div className="flex flex-col items-center justify-center w-full max-w-[340px] gap-4 animate-in fade-in zoom-in-95">
-            {phase !== "intermission" ? (
+            {phase === "selecting" ? (
+                <div className="flex flex-col items-center justify-center w-full gap-5">
+                    <div className="text-center">
+                        <div className="text-xs font-black uppercase tracking-[0.18em] text-primary">
+                            Biranje slova
+                        </div>
+
+                        <div className="mt-1 text-xs font-medium text-text-secondary">
+                            {isRoundStarter
+                                ? "Pritisni STOP kada želiš"
+                                : `${roundStarter === "blue" ? "Plavi" : "Crveni"} igrač bira slova`}
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2.5 w-full">
+                        <div className="grid grid-cols-6 gap-2">
+                            {rollingLetters.slice(0, 6).map((letter, index) => (
+                                <div
+                                    key={`rolling-top-${index}`}
+                                    className="flex h-12 items-center justify-center rounded-xl border border-primary/30 bg-surface text-lg font-black text-text shadow-sm"
+                                >
+                                    {letter}
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="grid grid-cols-6 gap-2">
+                            {rollingLetters.slice(6, 12).map((letter, index) => (
+                                <div
+                                    key={`rolling-bottom-${index}`}
+                                    className="flex h-12 items-center justify-center rounded-xl border border-primary/30 bg-surface text-lg font-black text-text shadow-sm"
+                                >
+                                    {letter}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={stopLetters}
+                        disabled={!isRoundStarter}
+                        className="w-full py-4 rounded-2xl bg-primary text-black font-black text-xl tracking-wider transition-all active:scale-[0.98] shadow-[0_0_30px_rgba(245,158,11,0.2)] cursor-pointer disabled:cursor-default disabled:opacity-35"
+                    >
+                        {isRoundStarter ? "STOP" : "ČEKANJE..."}
+                    </button>
+                </div>
+            ) : phase !== "intermission" ? (
                 <>
                     <div className="min-h-[24px] flex items-center justify-center">
                         {isChecking && (
@@ -780,18 +1018,38 @@ export function PronadjiRec({
                                 </span>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                {roundSummary?.isBlueValid ? (
-                                    <Check className="h-5 w-5 text-emerald-500" />
-                                ) : (
-                                    <X className="h-5 w-5 text-red-500" />
-                                )}
+                            <div className="flex flex-col items-end gap-1">
+                                <div className="flex items-center gap-2">
+                                    {roundSummary?.isBlueValid ? (
+                                        <Check className="h-5 w-5 text-emerald-500" />
+                                    ) : (
+                                        <X className="h-5 w-5 text-red-500" />
+                                    )}
 
-                                <span className="text-lg font-black text-blue-400">
-                                    +
-                                    {roundSummary?.bluePts ??
-                                        0}
-                                </span>
+                                    <span className="text-lg font-black text-blue-400">
+                                        +{roundSummary?.bluePts ?? 0}
+                                    </span>
+                                </div>
+
+                                {roundSummary?.isBlueValid && (
+                                    <div className="flex flex-col items-end text-[9px] font-bold leading-tight text-text-secondary">
+                                        <span>Slova: +{roundSummary.blueBreakdown.letters}</span>
+                                        {roundSummary.blueBreakdown.longerWordBonus > 0 && (
+                                            <span>Duža reč: +{roundSummary.blueBreakdown.longerWordBonus}</span>
+                                        )}
+                                        {roundSummary.blueBreakdown.roundAdvantageBonus > 0 && (
+                                            <span>Prednost runde: +{roundSummary.blueBreakdown.roundAdvantageBonus}</span>
+                                        )}
+                                        {roundSummary.blueBreakdown.computerBonus > 0 && (
+                                            <span>
+                                                {roundSummary.blueBreakdown.computerBonus === 3
+                                                    ? "Kao najduža: "
+                                                    : "Duže od najduže: "}
+                                                +{roundSummary.blueBreakdown.computerBonus}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -810,20 +1068,50 @@ export function PronadjiRec({
                                 </span>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                {roundSummary?.isRedValid ? (
-                                    <Check className="h-5 w-5 text-emerald-500" />
-                                ) : (
-                                    <X className="h-5 w-5 text-red-500" />
-                                )}
+                            <div className="flex flex-col items-end gap-1">
+                                <div className="flex items-center gap-2">
+                                    {roundSummary?.isRedValid ? (
+                                        <Check className="h-5 w-5 text-emerald-500" />
+                                    ) : (
+                                        <X className="h-5 w-5 text-red-500" />
+                                    )}
 
-                                <span className="text-lg font-black text-red-400">
-                                    +
-                                    {roundSummary?.redPts ??
-                                        0}
-                                </span>
+                                    <span className="text-lg font-black text-red-400">
+                                        +{roundSummary?.redPts ?? 0}
+                                    </span>
+                                </div>
+
+                                {roundSummary?.isRedValid && (
+                                    <div className="flex flex-col items-end text-[9px] font-bold leading-tight text-text-secondary">
+                                        <span>Slova: +{roundSummary.redBreakdown.letters}</span>
+                                        {roundSummary.redBreakdown.longerWordBonus > 0 && (
+                                            <span>Duža reč: +{roundSummary.redBreakdown.longerWordBonus}</span>
+                                        )}
+                                        {roundSummary.redBreakdown.roundAdvantageBonus > 0 && (
+                                            <span>Prednost runde: +{roundSummary.redBreakdown.roundAdvantageBonus}</span>
+                                        )}
+                                        {roundSummary.redBreakdown.computerBonus > 0 && (
+                                            <span>
+                                                {roundSummary.redBreakdown.computerBonus === 3
+                                                    ? "Kao najduža: "
+                                                    : "Duže od najduže: "}
+                                                +{roundSummary.redBreakdown.computerBonus}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
+                    </div>
+
+                    <div className="w-full flex flex-col items-center justify-center gap-1 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-center">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-text-secondary">
+                            Najduža reč
+                        </span>
+
+                        <span className="text-base font-black tracking-widest text-primary">
+                            {roundSummary?.longestWord || initialTiles?.najduza_rec || "—"}
+                        </span>
                     </div>
 
                     <div className="flex items-center gap-2 text-xs font-bold text-text-secondary bg-surface-light px-4 py-2 rounded-xl">

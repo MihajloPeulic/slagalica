@@ -77,6 +77,9 @@ export function Spojnice({
 
     const canPlay = activePlayer === myRole && !isError && phase === "playing" && !isGameOver;
 
+    // Jedan klijent vodi zajedničke vremenske prelaze da oba igrača ostanu u syncu.
+    const isAuthority = myRole === "blue";
+
     // Funkcija koja proverava promene u poenima i prosleđuje deltu u roditeljski header
     function updateHeaderDelta(newBlue: number, newRed: number) {
         const deltaBlue = newBlue - prevBlueRef.current;
@@ -121,7 +124,7 @@ export function Spojnice({
 
         const now = Date.now();
         setCountdownExpiresAt(now + 5 * 1000);
-        setTurnExpiresAt(now + 15 * 1000);
+        setTurnExpiresAt(0);
         setTransitionExpiresAt(0);
         setIntermissionExpiresAt(0);
 
@@ -190,6 +193,18 @@ export function Spojnice({
             return;
         }
 
+        if (incomingBroadcast.type === "SPOJNICE_PICK") {
+            if (!isAuthority) return;
+
+            processPick(
+                incomingBroadcast.itemId,
+                incomingBroadcast.role,
+                incomingBroadcast.currentIndex
+            );
+
+            return;
+        }
+
         if (incomingBroadcast.type === "SPOJNICE_SYNC_REQUEST") {
             const snapshot = gameSnapshot.current;
 
@@ -234,13 +249,24 @@ export function Spojnice({
             if (incomingBroadcast.phase) setPhase(incomingBroadcast.phase);
             if (incomingBroadcast.rightItems) setRightItems(incomingBroadcast.rightItems);
 
-            if (incomingBroadcast.blueScore !== undefined) {
-                setBlueScore(incomingBroadcast.blueScore);
-                updateHeaderDelta(incomingBroadcast.blueScore, incomingBroadcast.redScore ?? redScore);
-            }
-            if (incomingBroadcast.redScore !== undefined) {
-                setRedScore(incomingBroadcast.redScore);
-                updateHeaderDelta(incomingBroadcast.blueScore ?? blueScore, incomingBroadcast.redScore);
+            if (
+                incomingBroadcast.blueScore !== undefined ||
+                incomingBroadcast.redScore !== undefined
+            ) {
+                const nextBlue =
+                    incomingBroadcast.blueScore ?? blueScore;
+                const nextRed =
+                    incomingBroadcast.redScore ?? redScore;
+
+                setBlueScore(nextBlue);
+                setRedScore(nextRed);
+
+                if (incomingBroadcast.isRefreshSync) {
+                    prevBlueRef.current = nextBlue;
+                    prevRedRef.current = nextRed;
+                } else {
+                    updateHeaderDelta(nextBlue, nextRed);
+                }
             }
 
             if (incomingBroadcast.turnExpiresAt !== undefined) {
@@ -264,13 +290,18 @@ export function Spojnice({
             setMatchedPairs(incomingBroadcast.matchedPairs);
             setMissedLeftIds(incomingBroadcast.missedLeftIds);
 
-            if (incomingBroadcast.blueScore !== undefined) {
-                setBlueScore(incomingBroadcast.blueScore);
-                updateHeaderDelta(incomingBroadcast.blueScore, incomingBroadcast.redScore ?? redScore);
-            }
-            if (incomingBroadcast.redScore !== undefined) {
-                setRedScore(incomingBroadcast.redScore);
-                updateHeaderDelta(incomingBroadcast.blueScore ?? blueScore, incomingBroadcast.redScore);
+            if (
+                incomingBroadcast.blueScore !== undefined ||
+                incomingBroadcast.redScore !== undefined
+            ) {
+                const nextBlue =
+                    incomingBroadcast.blueScore ?? blueScore;
+                const nextRed =
+                    incomingBroadcast.redScore ?? redScore;
+
+                setBlueScore(nextBlue);
+                setRedScore(nextRed);
+                updateHeaderDelta(nextBlue, nextRed);
             }
 
             if (incomingBroadcast.intermissionExpiresAt !== undefined) {
@@ -279,28 +310,46 @@ export function Spojnice({
 
             return;
         }
-    }, [incomingBroadcast, myRole, round, blueScore, redScore]);
+    }, [
+        incomingBroadcast,
+        myRole,
+        round,
+        blueScore,
+        redScore,
+        isAuthority,
+        activePlayer,
+        currentIndex,
+        phase,
+        isError,
+        isGameOver,
+        rightItems,
+        matchedPairs,
+        missedLeftIds,
+        attemptCount,
+    ]);
 
-    function broadcastSync(extra: any = {}) {
+    function broadcastState(extra: any = {}) {
+        const snapshot = gameSnapshot.current;
+
         sendBroadcast({
             type: "SPOJNICE_SYNC",
             role: myRole,
             round,
-            matchedPairs,
-            missedLeftIds,
-            currentIndex,
-            activePlayer,
-            attemptCount,
-            selectedRight,
-            isError,
-            phase,
-            blueScore,
-            redScore,
-            rightItems,
-            turnExpiresAt,
-            transitionExpiresAt,
-            countdownExpiresAt,
-            intermissionExpiresAt,
+            matchedPairs: snapshot.matchedPairs,
+            missedLeftIds: snapshot.missedLeftIds,
+            currentIndex: snapshot.currentIndex,
+            activePlayer: snapshot.activePlayer,
+            attemptCount: snapshot.attemptCount,
+            selectedRight: snapshot.selectedRight,
+            isError: snapshot.isError,
+            phase: snapshot.phase,
+            blueScore: snapshot.blueScore,
+            redScore: snapshot.redScore,
+            rightItems: snapshot.rightItems,
+            turnExpiresAt: snapshot.turnExpiresAt,
+            transitionExpiresAt: snapshot.transitionExpiresAt,
+            countdownExpiresAt: snapshot.countdownExpiresAt,
+            intermissionExpiresAt: snapshot.intermissionExpiresAt,
             ...extra
         });
     }
@@ -319,16 +368,20 @@ export function Spojnice({
             onTimerTick(remaining);
 
             if (remaining <= 0) {
-                const newTurnExpiresAt = Date.now() + 15 * 1000;
+                if (isAuthority) {
+                    const newTurnExpiresAt = Date.now() + 15 * 1000;
 
-                setPhase("playing");
-                setTimeLeft(15);
-                setTurnExpiresAt(newTurnExpiresAt);
+                    setPhase("playing");
+                    setTimeLeft(15);
+                    setTurnExpiresAt(newTurnExpiresAt);
 
-                broadcastSync({
-                    phase: "playing",
-                    turnExpiresAt: newTurnExpiresAt
-                });
+                    broadcastState({
+                        phase: "playing",
+                        turnExpiresAt: newTurnExpiresAt,
+                        transitionExpiresAt: 0,
+                        isError: false,
+                    });
+                }
 
                 return true;
             }
@@ -343,11 +396,11 @@ export function Spojnice({
         }, 250);
 
         return () => clearInterval(timer);
-    }, [phase, countdownExpiresAt]);
+    }, [phase, countdownExpiresAt, isAuthority]);
 
     // Kada se igra završi, prelazi se u intermisiju
     useEffect(() => {
-        if (isGameOver && phase === "playing") {
+        if (isGameOver && phase === "playing" && isAuthority) {
             const newIntermissionExpiresAt = Date.now() + 10 * 1000;
 
             setPhase("intermission");
@@ -381,7 +434,7 @@ export function Spojnice({
                 setTransitionTimer(remaining);
                 onTimerTick(remaining);
 
-                if (remaining <= 0 && activePlayer === myRole) {
+                if (remaining <= 0 && isAuthority) {
                     executeTurnSwitch();
                     return true;
                 }
@@ -397,14 +450,14 @@ export function Spojnice({
             setTimeLeft(remaining);
             onTimerTick(remaining);
 
-            if (remaining <= 0 && activePlayer === myRole) {
+            if (remaining <= 0 && isAuthority) {
                 const newTransitionExpiresAt = Date.now() + 3 * 1000;
 
                 setIsError(true);
                 setTransitionTimer(3);
                 setTransitionExpiresAt(newTransitionExpiresAt);
 
-                broadcastSync({
+                broadcastState({
                     isError: true,
                     transitionExpiresAt: newTransitionExpiresAt
                 });
@@ -429,7 +482,8 @@ export function Spojnice({
         isError,
         phase,
         myRole,
-        activePlayer
+        activePlayer,
+        isAuthority
     ]);
 
     // ================= 5. TAJMER INTERMISIJE (10s) =================
@@ -464,33 +518,80 @@ export function Spojnice({
     }, [phase, intermissionExpiresAt, onNextRound]);
 
     function executeTurnSwitch() {
+        if (!isAuthority) return;
+
         if (attemptCount === 0) {
+            // Prvi igrač nije pogodio: drugi dobija svoj pokušaj.
             const nextAttempt = 1;
             const nextPlayer = activePlayer === "blue" ? "red" : "blue";
+            const newTurnExpiresAt = Date.now() + 15 * 1000;
+
             setAttemptCount(nextAttempt);
             setSelectedRight(null);
             setIsError(false);
+            setTransitionExpiresAt(0);
             setTimeLeft(15);
+            setTurnExpiresAt(newTurnExpiresAt);
             setActivePlayer(nextPlayer);
-            
-            broadcastSync({
+
+            broadcastState({
                 activePlayer: nextPlayer,
                 attemptCount: nextAttempt,
                 selectedRight: null,
                 isError: false,
-                timeLeft: 15,
+                transitionExpiresAt: 0,
+                turnExpiresAt: newTurnExpiresAt,
             });
         } else {
+            // Oba igrača su promašila isti par: nema minusa, samo prelazimo dalje.
             const currentLeftItem = leftItems[currentIndex];
-            if (currentLeftItem) {
-                const updatedMissed = [...missedLeftIds, currentLeftItem.id];
-                setMissedLeftIds(updatedMissed);
-                proceedToNextRow(updatedMissed, matchedPairs, blueScore, redScore);
-            }
+
+            if (!currentLeftItem) return;
+
+            const updatedMissed = [
+                ...missedLeftIds,
+                currentLeftItem.id
+            ];
+
+            setMissedLeftIds(updatedMissed);
+
+            proceedToNextRow(
+                updatedMissed,
+                matchedPairs,
+                blueScore,
+                redScore
+            );
         }
     }
 
-    function proceedToNextRow(updatedMissed: number[], updatedMatched: any[], currBlue: number, currRed: number) {
+    function proceedToNextRow(
+        updatedMissed: number[],
+        updatedMatched: { id: number; player: "blue" | "red" }[],
+        currBlue: number,
+        currRed: number
+    ) {
+        const nextIndex = currentIndex + 1;
+
+        if (nextIndex >= leftItems.length) {
+            // isGameOver effect će završiti rundu kad state stigne.
+            setSelectedRight(null);
+            setIsError(false);
+            setTransitionExpiresAt(0);
+
+            broadcastState({
+                matchedPairs: updatedMatched,
+                missedLeftIds: updatedMissed,
+                selectedRight: null,
+                isError: false,
+                transitionExpiresAt: 0,
+                blueScore: currBlue,
+                redScore: currRed,
+            });
+
+            return;
+        }
+
+        const nextPlayer = roundStarter;
         const newTurnExpiresAt = Date.now() + 15 * 1000;
 
         setSelectedRight(null);
@@ -499,69 +600,101 @@ export function Spojnice({
         setTimeLeft(15);
         setTurnExpiresAt(newTurnExpiresAt);
         setTransitionExpiresAt(0);
+        setCurrentIndex(nextIndex);
+        setActivePlayer(nextPlayer);
 
-        const nextIndex = currentIndex + 1;
-        const nextPlayer = roundStarter;
-
-        if (nextIndex < leftItems.length) {
-            setCurrentIndex(nextIndex);
-            setActivePlayer(nextPlayer);
-            
-            broadcastSync({
-                matchedPairs: updatedMatched,
-                missedLeftIds: updatedMissed,
-                currentIndex: nextIndex,
-                activePlayer: nextPlayer,
-                attemptCount: 0,
-                selectedRight: null,
-                isError: false,
-                turnExpiresAt: newTurnExpiresAt,
-                transitionExpiresAt: 0,
-                blueScore: currBlue,
-                redScore: currRed
-            });
-        }
+        broadcastState({
+            matchedPairs: updatedMatched,
+            missedLeftIds: updatedMissed,
+            currentIndex: nextIndex,
+            activePlayer: nextPlayer,
+            attemptCount: 0,
+            selectedRight: null,
+            isError: false,
+            turnExpiresAt: newTurnExpiresAt,
+            transitionExpiresAt: 0,
+            blueScore: currBlue,
+            redScore: currRed
+        });
     }
 
     function handleRightClick(item: PairItem) {
         if (!canPlay || isGameOver || isError || !data) return;
 
+        sendBroadcast({
+            type: "SPOJNICE_PICK",
+            role: myRole,
+            round,
+            itemId: item.id,
+            currentIndex,
+        });
+
+        // Authority može odmah obraditi vlastiti klik.
+        if (isAuthority) {
+            processPick(item.id, myRole, currentIndex);
+        }
+    }
+
+    function processPick(
+        itemId: number,
+        player: "blue" | "red",
+        pickIndex: number
+    ) {
+        if (!isAuthority) return;
+        if (phase !== "playing" || isError || isGameOver) return;
+        if (player !== activePlayer) return;
+        if (pickIndex !== currentIndex) return;
+
         const currentLeftItem = leftItems[currentIndex];
-        if (!currentLeftItem) return;
+        const item = rightItems.find(right => right.id === itemId);
+
+        if (!currentLeftItem || !item) return;
+        if (matchedPairs.some(match => match.id === item.id)) return;
 
         setSelectedRight(item);
 
         let currBlue = blueScore;
         let currRed = redScore;
-        let updatedMatched = [...matchedPairs];
+        const updatedMatched = [...matchedPairs];
 
         if (currentLeftItem.id === item.id) {
-            // Tačan pogodak: dodeljujemo bodove apsolutno onome ko je trenutno aktivan igrač
+            // Svaki tačan par vrijedi +2. Netačan odgovor nikad ne oduzima poene.
             if (activePlayer === "blue") {
                 currBlue += 2;
             } else {
                 currRed += 2;
             }
 
+            const nextMatched = [
+                ...updatedMatched,
+                {
+                    id: currentLeftItem.id,
+                    player: activePlayer,
+                }
+            ];
+
             setBlueScore(currBlue);
             setRedScore(currRed);
-
-            // Odmah ažuriramo header sa novonastalim deltama za oba igrača
+            setMatchedPairs(nextMatched);
             updateHeaderDelta(currBlue, currRed);
 
-            updatedMatched.push({ id: currentLeftItem.id, player: activePlayer });
-            setMatchedPairs(updatedMatched);
-
-            proceedToNextRow(missedLeftIds, updatedMatched, currBlue, currRed);
+            proceedToNextRow(
+                missedLeftIds,
+                nextMatched,
+                currBlue,
+                currRed
+            );
         } else {
-            // Netačan pogodak -> Greška
-            const newTransitionExpiresAt = Date.now() + 3 * 1000;
+            const newTransitionExpiresAt =
+                Date.now() + 3 * 1000;
 
             setIsError(true);
             setTransitionTimer(3);
-            setTransitionExpiresAt(newTransitionExpiresAt);
+            setTransitionExpiresAt(
+                newTransitionExpiresAt
+            );
 
-            broadcastSync({
+            broadcastState({
                 selectedRight: item,
                 isError: true,
                 transitionExpiresAt: newTransitionExpiresAt
@@ -596,7 +729,7 @@ export function Spojnice({
                         </div>
                     </div>
 
-                    <div className={`grid grid-cols-2 gap-3 w-full max-w-[340px] transition-all duration-300 ${!canPlay ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
+                    <div className={`grid grid-cols-2 gap-3 w-full max-w-[340px] transition-all duration-300 ${!canPlay && phase === "playing" ? 'opacity-70' : ''}`}>
                         
                         {/* LEVA KOLONA */}
                         <div className="flex flex-col gap-2">
@@ -612,8 +745,8 @@ export function Spojnice({
                                     btnStyle = "bg-primary/10 border-primary/30 text-primary font-bold cursor-default opacity-100";
                                 } else if (matched) {
                                     btnStyle = matched.player === "blue" 
-                                        ? "bg-blue-500/20 border-blue-500/50 text-blue-400 opacity-90 cursor-not-allowed" 
-                                        : "bg-red-500/20 border-red-500/50 text-red-400 opacity-90 cursor-not-allowed";
+                                        ? "bg-blue-500/20 border-blue-500/50 text-blue-400 opacity-80 cursor-not-allowed" 
+                                        : "bg-red-500/20 border-red-500/50 text-red-400 opacity-80 cursor-not-allowed";
                                 } else if (isMissed) {
                                     btnStyle = "bg-surface/10 border-border/20 text-text-muted opacity-30 line-through cursor-not-allowed";
                                 } else if (isActive) {
@@ -645,10 +778,10 @@ export function Spojnice({
                                 } else if (isMatched) {
                                     const matchInfo = matchedPairs.find(m => m.id === item.id);
                                     btnStyle = matchInfo?.player === "blue"
-                                        ? "bg-blue-500/20 border-blue-500/50 text-blue-400 opacity-90 cursor-not-allowed"
-                                        : "bg-red-500/20 border-red-500/50 text-red-400 opacity-90 cursor-not-allowed";
+                                        ? "bg-blue-500/20 border-blue-500/50 text-blue-400 opacity-80 cursor-not-allowed"
+                                        : "bg-red-500/20 border-red-500/50 text-red-400 opacity-80 cursor-not-allowed";
                                 } else if (isSelected && isError) {
-                                    btnStyle = "bg-red-500/20 border-red-500 text-red-400";
+                                    btnStyle = "bg-yellow-500/20 border-yellow-500/60 text-yellow-400";
                                 } else if (isSelected) {
                                     btnStyle = "bg-primary/20 border-primary text-primary";
                                 }
@@ -658,7 +791,7 @@ export function Spojnice({
                                         key={`right-${item.id}`}
                                         onClick={() => handleRightClick(item)}
                                         disabled={!canPlay || isMatched || isError}
-                                        className={`h-11 px-3 flex items-center justify-center text-center rounded-xl border text-xs font-bold transition-all shadow-sm ${canPlay && !isMatched && !isError ? 'cursor-pointer hover:bg-surface-light' : 'cursor-not-allowed'} ${btnStyle}`}
+                                        className={`h-11 px-3 flex items-center justify-center text-center rounded-xl border text-xs font-bold transition-all shadow-sm ${canPlay && !isMatched && !isError ? 'cursor-pointer hover:bg-surface-light' : 'cursor-not-allowed opacity-75'} ${btnStyle}`}
                                     >
                                         <span className="truncate">{item.right}</span>
                                     </button>

@@ -14,7 +14,6 @@ export async function RegisterAction(formData: FormData) {
     const confirm_password = String(formData.get("confirm_password"))
     const username = String(formData.get("username"))
     
-    const USERNAME_REGEX = /^[a-z0-9]+$/;
     const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const PASSWORD_REGEX = /^(?=.*\d)(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
 
@@ -25,10 +24,6 @@ export async function RegisterAction(formData: FormData) {
 
     if(username.length > 16 || username.length < 3){
         return {error: "Username mora imati izmedju 3 i 16 karaktera."}
-    }
-
-    if(!USERNAME_REGEX.test(username)){
-        return {error: "Username smije imati samo slova i brojeve."}
     }
 
     if (!PASSWORD_REGEX.test(password)) {

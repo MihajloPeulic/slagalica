@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { HelpCircle, Clock } from "lucide-react";
+import { HelpCircle, Clock, ArrowRight } from "lucide-react";
 
 interface Question {
     id: number;
@@ -51,11 +51,11 @@ export function KoZnaZna({
 
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [phase, setPhase] = useState<Phase>("answering");
-    const [answerExpiresAt, setAnswerExpiresAt] = useState(() => Date.now() + 20 * 1000);
+    const [answerExpiresAt, setAnswerExpiresAt] = useState(() => Date.now() + 10 * 1000);
     const [revealExpiresAt, setRevealExpiresAt] = useState(0);
     const [summaryExpiresAt, setSummaryExpiresAt] = useState(0);
 
-    const [timeLeft, setTimeLeft] = useState(20);
+    const [timeLeft, setTimeLeft] = useState(10);
     const [transitionTimer, setTransitionTimer] = useState(3);
     const [summaryTimeLeft, setSummaryTimeLeft] = useState(10);
 
@@ -64,6 +64,10 @@ export function KoZnaZna({
 
     const [myAnswer, setMyAnswer] = useState<AnswerData | null>(null);
     const [oppAnswer, setOppAnswer] = useState<AnswerData | null>(null);
+
+    // "Dalje" tokom odgovaranja znači: ne znam / preskačem.
+    const [myPassed, setMyPassed] = useState(false);
+    const [oppPassed, setOppPassed] = useState(false);
 
     const [questionResults, setQuestionResults] = useState<QuestionResult[]>([]);
     const [questionPoints, setQuestionPoints] = useState<QuestionPoints>({ blue: 0, red: 0 });
@@ -87,6 +91,8 @@ export function KoZnaZna({
         redScore,
         myAnswer,
         oppAnswer,
+        myPassed,
+        oppPassed,
         questionResults,
         questionPoints,
     });
@@ -102,6 +108,8 @@ export function KoZnaZna({
             redScore,
             myAnswer,
             oppAnswer,
+            myPassed,
+            oppPassed,
             questionResults,
             questionPoints,
         };
@@ -115,6 +123,8 @@ export function KoZnaZna({
         redScore,
         myAnswer,
         oppAnswer,
+        myPassed,
+        oppPassed,
         questionResults,
         questionPoints,
     ]);
@@ -137,11 +147,11 @@ export function KoZnaZna({
         setCurrentQuestionIndex(0);
         setPhase("answering");
 
-        setAnswerExpiresAt(now + 20 * 1000);
+        setAnswerExpiresAt(now + 10 * 1000);
         setRevealExpiresAt(0);
         setSummaryExpiresAt(0);
 
-        setTimeLeft(20);
+        setTimeLeft(10);
         setTransitionTimer(3);
         setSummaryTimeLeft(10);
 
@@ -149,7 +159,9 @@ export function KoZnaZna({
         setRedScore(0);
         setMyAnswer(null);
         setOppAnswer(null);
-        setQuestionResults(Array(incomingQuestions.length).fill("none"));
+        setMyPassed(false);
+        setOppPassed(false);
+        setQuestionResults(Array(10).fill("none"));
         setQuestionPoints({ blue: 0, red: 0 });
 
         questionStartTime.current = now;
@@ -179,10 +191,19 @@ export function KoZnaZna({
             return;
         }
 
+        if (incomingBroadcast.type === "KZK_PASS") {
+            if (incomingBroadcast.questionIndex !== state.currentQuestionIndex) return;
+
+            setOppPassed(true);
+            return;
+        }
+
         if (incomingBroadcast.type === "KZK_NEXT_QUESTION") {
             setCurrentQuestionIndex(incomingBroadcast.questionIndex);
             setMyAnswer(null);
             setOppAnswer(null);
+            setMyPassed(false);
+            setOppPassed(false);
             setPhase("answering");
             setQuestionPoints({ blue: 0, red: 0 });
             evaluatedQuestionRef.current = null;
@@ -195,7 +216,7 @@ export function KoZnaZna({
             const newAnswerExpiresAt =
                 typeof incomingBroadcast.answerExpiresAt === "number"
                     ? incomingBroadcast.answerExpiresAt
-                    : newStart + 20 * 1000;
+                    : newStart + 10 * 1000;
 
             questionStartTime.current = newStart;
             setAnswerExpiresAt(newAnswerExpiresAt);
@@ -227,9 +248,13 @@ export function KoZnaZna({
             if (myRole === "blue") {
                 setMyAnswer(incomingBroadcast.myAnswer ?? null);
                 setOppAnswer(incomingBroadcast.oppAnswer ?? null);
+                setMyPassed(!!incomingBroadcast.bluePassed);
+                setOppPassed(!!incomingBroadcast.redPassed);
             } else {
                 setMyAnswer(incomingBroadcast.oppAnswer ?? null);
                 setOppAnswer(incomingBroadcast.myAnswer ?? null);
+                setMyPassed(!!incomingBroadcast.redPassed);
+                setOppPassed(!!incomingBroadcast.bluePassed);
             }
 
             setPhase("revealing");
@@ -247,7 +272,10 @@ export function KoZnaZna({
             evaluatedQuestionRef.current = state.currentQuestionIndex;
 
             if (myRole !== "blue") {
-                onScoreSubmit(incomingBroadcast.redDelta, incomingBroadcast.blueDelta);
+                onScoreSubmit(
+                    incomingBroadcast.blueDelta,
+                    incomingBroadcast.redDelta
+                );
             }
 
             return;
@@ -285,6 +313,8 @@ export function KoZnaZna({
 
                 myAnswer: state.oppAnswer,
                 oppAnswer: state.myAnswer,
+                myPassed: state.oppPassed,
+                oppPassed: state.myPassed,
 
                 questionResults: state.questionResults,
                 questionPoints: state.questionPoints,
@@ -334,11 +364,23 @@ export function KoZnaZna({
 
             setBlueScore(incomingBroadcast.blueScore);
             setRedScore(incomingBroadcast.redScore);
-            setQuestionResults(incomingBroadcast.questionResults ?? []);
+            const syncedResults: QuestionResult[] = Array(10).fill("none");
+            const incomingResults: QuestionResult[] =
+                incomingBroadcast.questionResults ?? [];
+
+            incomingResults
+                .slice(0, 10)
+                .forEach((result, index) => {
+                    syncedResults[index] = result;
+                });
+
+            setQuestionResults(syncedResults);
             setQuestionPoints(incomingBroadcast.questionPoints ?? { blue: 0, red: 0 });
 
             setMyAnswer(incomingBroadcast.myAnswer ?? null);
             setOppAnswer(incomingBroadcast.oppAnswer ?? null);
+            setMyPassed(!!incomingBroadcast.myPassed);
+            setOppPassed(!!incomingBroadcast.oppPassed);
 
             if (typeof incomingBroadcast.questionStartTime === "number") {
                 questionStartTime.current = incomingBroadcast.questionStartTime;
@@ -388,7 +430,10 @@ export function KoZnaZna({
             setTimeLeft(remaining);
             onTimerTick(remaining);
 
-            if (myAnswer !== null && oppAnswer !== null) {
+            const myResolved = myAnswer !== null || myPassed;
+            const oppResolved = oppAnswer !== null || oppPassed;
+
+            if (myResolved && oppResolved) {
                 if (myRole === "blue") evaluateQuestion();
                 return true;
             }
@@ -413,6 +458,8 @@ export function KoZnaZna({
         phase,
         myAnswer,
         oppAnswer,
+        myPassed,
+        oppPassed,
         myRole
     ]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -430,49 +477,132 @@ export function KoZnaZna({
 
         const blueAnswer = myAnswer;
         const redAnswer = oppAnswer;
+        const bluePassed = myPassed;
+        const redPassed = oppPassed;
         const correctIndex = currentQuestion.correctIndex;
 
-        const blueCorrect = blueAnswer !== null && blueAnswer.index === correctIndex;
-        const redCorrect = redAnswer !== null && redAnswer.index === correctIndex;
+        const blueCorrect =
+            !bluePassed &&
+            blueAnswer !== null &&
+            blueAnswer.index === correctIndex;
+
+        const redCorrect =
+            !redPassed &&
+            redAnswer !== null &&
+            redAnswer.index === correctIndex;
 
         let blueDelta = 0;
         let redDelta = 0;
 
-        if (blueCorrect && redCorrect) {
-            if (blueAnswer!.time < redAnswer!.time) {
-                blueDelta = 6; redDelta = 0;
-            } else if (redAnswer!.time < blueAnswer!.time) {
-                blueDelta = 0; redDelta = 6;
-            } else {
-                blueDelta = 0; redDelta = 0;
-            }
-        } else if (blueCorrect) {
-            blueDelta = 6;
-            if (redAnswer !== null) {redScore === 0 ? redDelta = 0 : redDelta = -3};
-        } else if (redCorrect) {
-            redDelta = 6;
-            if (blueAnswer !== null) {blueDelta === 0 ? blueDelta = 0 : blueDelta = -3};
-        } else {
-            if (blueAnswer !== null) {blueDelta === 0 ? blueDelta = 0 : blueDelta = -3};
-            if (redAnswer !== null) {redDelta === 0 ? redDelta = 0 : redDelta = -3};
+        // OBOJICA SU KLIKNULA DALJE:
+        // obojica dobijaju 0 i odmah se otkriva odgovor.
+        if (bluePassed && redPassed) {
+            blueDelta = 0;
+            redDelta = 0;
         }
 
+        // Jedan je preskočio, drugi odgovorio.
+        else if (bluePassed) {
+            blueDelta = 0;
+
+            if (redAnswer !== null) {
+                redDelta = redCorrect ? 6 : -3;
+            }
+        } else if (redPassed) {
+            redDelta = 0;
+
+            if (blueAnswer !== null) {
+                blueDelta = blueCorrect ? 6 : -3;
+            }
+        }
+
+        // OBOJICA TAČNO:
+        // brži dobija +6, sporiji 0.
+        // Ista milisekunda -> 0 / 0.
+        else if (blueCorrect && redCorrect) {
+            if (blueAnswer!.answeredAt < redAnswer!.answeredAt) {
+                blueDelta = 6;
+                redDelta = 0;
+            } else if (redAnswer!.answeredAt < blueAnswer!.answeredAt) {
+                blueDelta = 0;
+                redDelta = 6;
+            } else {
+                blueDelta = 0;
+                redDelta = 0;
+            }
+        }
+
+        // Samo plavi tačan.
+        else if (blueCorrect) {
+            blueDelta = 6;
+
+            if (redAnswer !== null) {
+                redDelta = -3;
+            }
+        }
+
+        // Samo crveni tačan.
+        else if (redCorrect) {
+            redDelta = 6;
+
+            if (blueAnswer !== null) {
+                blueDelta = -3;
+            }
+        }
+
+        // Niko nije tačan.
+        else {
+            if (blueAnswer !== null) {
+                blueDelta = -3;
+            }
+
+            if (redAnswer !== null) {
+                redDelta = -3;
+            }
+
+            // Ako neko nije odgovorio do timeouta,
+            // to nije isto što i netačan klik -> 0.
+        }
+
+        const newBlueScore =
+            blueScore + blueDelta;
+
+        const newRedScore =
+            redScore + redDelta;
+
         let questionResult: QuestionResult = "gray";
-        if (blueDelta === 6 && redDelta === 6) questionResult = "tie";
-        else if (blueDelta > redDelta) questionResult = "blue";
-        else if (redDelta > blueDelta) questionResult = "red";
 
-        const newBlueScore = blueScore + blueDelta;
-        const newRedScore = redScore + redDelta;
+        if (
+            blueDelta > redDelta &&
+            blueDelta > 0
+        ) {
+            questionResult = "blue";
+        } else if (
+            redDelta > blueDelta &&
+            redDelta > 0
+        ) {
+            questionResult = "red";
+        } else if (
+            blueCorrect &&
+            redCorrect &&
+            blueAnswer?.answeredAt === redAnswer?.answeredAt
+        ) {
+            questionResult = "tie";
+        }
 
-        setQuestionPoints({ blue: blueDelta, red: redDelta });
+        setQuestionPoints({
+            blue: blueDelta,
+            red: redDelta,
+        });
+
         setQuestionResults((prev) => {
             const updated = [...prev];
             updated[currentQuestionIndex] = questionResult;
             return updated;
         });
 
-        const newRevealExpiresAt = Date.now() + 3 * 1000;
+        const newRevealExpiresAt =
+            Date.now() + 3 * 1000;
 
         setBlueScore(newBlueScore);
         setRedScore(newRedScore);
@@ -480,7 +610,10 @@ export function KoZnaZna({
         setRevealExpiresAt(newRevealExpiresAt);
         setTransitionTimer(3);
 
-        onScoreSubmit(blueDelta, redDelta);
+        onScoreSubmit(
+            blueDelta,
+            redDelta
+        );
 
         sendBroadcast({
             type: "KZK_RESULT",
@@ -494,7 +627,38 @@ export function KoZnaZna({
             questionResult,
             myAnswer: blueAnswer,
             oppAnswer: redAnswer,
+            bluePassed,
+            redPassed,
             revealExpiresAt: newRevealExpiresAt,
+        });
+    }
+
+    function handleContinueQuestion() {
+        if (phase !== "revealing") return;
+        if (myRole !== "blue") return;
+
+        const nextIndex = currentQuestionIndex + 1;
+
+        if (nextIndex < questions.length) {
+            startNextQuestion(nextIndex);
+            return;
+        }
+
+        const newSummaryExpiresAt =
+            Date.now() + 10 * 1000;
+
+        setPhase("intermission");
+        setSummaryExpiresAt(
+            newSummaryExpiresAt
+        );
+        setSummaryTimeLeft(10);
+
+        sendBroadcast({
+            type: "KZK_INTERMISSION",
+            role: myRole,
+            round,
+            summaryExpiresAt:
+                newSummaryExpiresAt,
         });
     }
 
@@ -514,27 +678,8 @@ export function KoZnaZna({
             onTimerTick(remaining);
 
             if (remaining <= 0) {
-                const nextIndex = currentQuestionIndex + 1;
-
-                if (nextIndex < questions.length) {
-                    if (myRole === "blue") {
-                        startNextQuestion(nextIndex);
-                    }
-                } else {
-                    const newSummaryExpiresAt = Date.now() + 10 * 1000;
-
-                    setPhase("intermission");
-                    setSummaryExpiresAt(newSummaryExpiresAt);
-                    setSummaryTimeLeft(10);
-
-                    if (myRole === "blue") {
-                        sendBroadcast({
-                            type: "KZK_INTERMISSION",
-                            role: myRole,
-                            round,
-                            summaryExpiresAt: newSummaryExpiresAt,
-                        });
-                    }
+                if (myRole === "blue") {
+                    handleContinueQuestion();
                 }
 
                 return true;
@@ -563,18 +708,20 @@ export function KoZnaZna({
     // ============================================================
     function startNextQuestion(index: number) {
         const newQuestionStartTime = Date.now();
-        const newAnswerExpiresAt = newQuestionStartTime + 20 * 1000;
+        const newAnswerExpiresAt = newQuestionStartTime + 10 * 1000;
 
         setCurrentQuestionIndex(index);
         setMyAnswer(null);
         setOppAnswer(null);
+        setMyPassed(false);
+        setOppPassed(false);
         setQuestionPoints({ blue: 0, red: 0 });
         setPhase("answering");
 
         setAnswerExpiresAt(newAnswerExpiresAt);
         setRevealExpiresAt(0);
 
-        setTimeLeft(20);
+        setTimeLeft(10);
         setTransitionTimer(3);
 
         questionStartTime.current = newQuestionStartTime;
@@ -631,7 +778,11 @@ export function KoZnaZna({
     // 9. HANDLE OPTION CLICK
     // ============================================================
     function handleOptionClick(optionIndex: number) {
-        if (phase !== "answering" || myAnswer !== null) return;
+        if (
+            phase !== "answering" ||
+            myAnswer !== null ||
+            myPassed
+        ) return;
 
         const elapsed = Date.now() - questionStartTime.current;
         const answerData: AnswerData = {
@@ -648,6 +799,20 @@ export function KoZnaZna({
             round,
             questionIndex: currentQuestionIndex,
             answer: answerData,
+        });
+    }
+
+    function handlePass() {
+        if (phase !== "answering") return;
+        if (myAnswer !== null || myPassed) return;
+
+        setMyPassed(true);
+
+        sendBroadcast({
+            type: "KZK_PASS",
+            role: myRole,
+            round,
+            questionIndex: currentQuestionIndex,
         });
     }
 
@@ -678,12 +843,28 @@ export function KoZnaZna({
                     {/* QUESTION DOTS */}
                     <div className="flex items-center gap-1.5 p-2 rounded-2xl bg-surface/60 border border-border overflow-x-auto max-w-[320px]">
                         {questionResults.map((result, index) => {
-                            let dotStyle = "bg-surface-light border-border";
+                            let dotStyle =
+                                "bg-surface-light border-border/70 opacity-80";
 
-                            if (result === "blue") dotStyle = "bg-blue-500 border-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]";
-                            if (result === "red") dotStyle = "bg-red-500 border-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]";
-                            if (result === "tie") dotStyle = "bg-primary border-primary shadow-[0_0_8px_rgba(245,158,11,0.5)]";
-                            if (result === "gray") dotStyle = "bg-surface-light border-border opacity-30";
+                            if (result === "blue") {
+                                dotStyle =
+                                    "bg-blue-500 border-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)] opacity-100";
+                            }
+
+                            if (result === "red") {
+                                dotStyle =
+                                    "bg-red-500 border-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] opacity-100";
+                            }
+
+                            if (result === "tie") {
+                                dotStyle =
+                                    "bg-primary border-primary shadow-[0_0_8px_rgba(245,158,11,0.5)] opacity-100";
+                            }
+
+                            if (result === "gray") {
+                                dotStyle =
+                                    "bg-zinc-600/70 border-zinc-500/60 opacity-100";
+                            }
 
                             const isCurrent = index === currentQuestionIndex && phase === "answering";
 
@@ -728,6 +909,34 @@ export function KoZnaZna({
                         </div>
                     )}
 
+                    {phase === "revealing" && (myPassed || oppPassed) && (
+                        <div className="flex flex-wrap items-center justify-center gap-2 w-full max-w-[320px] text-[10px] font-black uppercase tracking-wider">
+                            {myPassed && (
+                                <span className="px-2.5 py-1 rounded-lg border border-border bg-surface-light text-text-secondary">
+                                    Ti: Dalje
+                                </span>
+                            )}
+
+                            {oppPassed && (
+                                <span className="px-2.5 py-1 rounded-lg border border-border bg-surface-light text-text-secondary">
+                                    Protivnik: Dalje
+                                </span>
+                            )}
+                        </div>
+                    )}
+
+                    {phase === "revealing" && (
+                        <button
+                            onClick={handleContinueQuestion}
+                            disabled={myRole !== "blue"}
+                            className="w-full max-w-[320px] py-3 rounded-2xl bg-primary text-black font-black text-sm transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            {myRole === "blue"
+                                ? "Sledeće pitanje"
+                                : "Čekamo sledeće pitanje..."}
+                        </button>
+                    )}
+
                     {/* OPTIONS */}
                     <div className="flex flex-col gap-2.5 w-full max-w-[320px]">
                         {currentQuestion.options.map((option, index) => {
@@ -759,7 +968,11 @@ export function KoZnaZna({
                                 <button
                                     key={index}
                                     onClick={() => handleOptionClick(index)}
-                                    disabled={phase !== "answering" || myAnswer !== null}
+                                    disabled={
+                                        phase !== "answering" ||
+                                        myAnswer !== null ||
+                                        myPassed
+                                    }
                                     className={`w-full relative flex flex-col p-3 rounded-2xl border text-sm font-bold transition-all shadow-sm ${buttonStyle}`}
                                 >
                                     <div className="flex items-center justify-between w-full gap-3">
@@ -791,6 +1004,23 @@ export function KoZnaZna({
                             );
                         })}
                     </div>
+
+                    {phase === "answering" && (
+                        <div className="flex justify-center w-full max-w-[320px]">
+                            <button
+                                onClick={handlePass}
+                                disabled={myAnswer !== null || myPassed}
+                                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full border border-primary/40 bg-primary/10 text-primary font-black text-sm transition-all hover:bg-primary/15 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                <span>
+                                    {myPassed
+                                        ? "Čekamo..."
+                                        : "Dalje"}
+                                </span>
+                                <ArrowRight className="h-4 w-4" />
+                            </button>
+                        </div>
+                    )}
                 </>
             ) : (
                 /* INTERMISSION */
