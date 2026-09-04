@@ -16,6 +16,16 @@ import { PronadjiRec } from "@/game_components/rec/page";
 
 const supabase = createClientSupabaseClient();
 
+function getProfileUsername(profile: any): string | null {
+    if (!profile) return null;
+
+    if (Array.isArray(profile)) {
+        return profile[0]?.username ?? null;
+    }
+
+    return profile.username ?? null;
+}
+
 export default function GameRoomPage() {
     const params = useParams();
     const roomId = params.roomId as string;
@@ -32,6 +42,11 @@ export default function GameRoomPage() {
     const [gameIndex, setGameIndex] = useState(0);
     const [round, setRound] = useState(1);
     const [currentHeaderTime, setCurrentHeaderTime] = useState(60);
+
+    // PRE-GAME / MATCHMAKING
+    const [gameStartAt, setGameStartAt] = useState<number | null>(null);
+    const [preGameCountdown, setPreGameCountdown] = useState(5);
+    const [rollingLetter, setRollingLetter] = useState("A");
 
     const channelRef = useRef<any>(null);
     const [isConnected, setIsConnected] = useState(false);
@@ -50,6 +65,7 @@ export default function GameRoomPage() {
         round,
         blueScore: localScoreBlue,
         redScore: localScoreRed,
+        gameStartAt,
     });
 
     useEffect(() => {
@@ -59,12 +75,14 @@ export default function GameRoomPage() {
             round,
             blueScore: localScoreBlue,
             redScore: localScoreRed,
+            gameStartAt,
         };
     }, [
         gameIndex,
         round,
         localScoreBlue,
         localScoreRed,
+        gameStartAt,
     ]);
 
     /*
@@ -114,6 +132,23 @@ export default function GameRoomPage() {
 
             setRoomData(data);
             setGameState(data?.game_state);
+
+            // Ako je soba već postala in_progress prije nego što smo
+            // stigli na realtime channel, pokreni fallback countdown.
+            // ROOM_GAME_START / ROOM_SYNC_RESPONSE će ga zatim uskladiti.
+            if (
+                data?.status === "in_progress" &&
+                getProfileUsername(data?.profiles_red)
+            ) {
+                const fallbackStartAt = Date.now() + 5_000;
+
+                roomSnapshotRef.current.gameStartAt =
+                    roomSnapshotRef.current.gameStartAt ?? fallbackStartAt;
+
+                setGameStartAt(prev => prev ?? fallbackStartAt);
+                setPreGameCountdown(5);
+            }
+
             setLoading(false);
         }
 
@@ -179,11 +214,54 @@ export default function GameRoomPage() {
                     table: "game_rooms",
                     filter: `id=eq.${roomId}`,
                 },
-                payload => {
-                    setRoomData((prev: any) => ({
-                        ...prev,
-                        status: payload.new.status,
-                    }));
+                async payload => {
+                    const {
+                        data: freshRoom,
+                        error: refreshError,
+                    } = await supabase
+                        .from("game_rooms")
+                        .select(`
+                            status,
+                            game_state,
+                            profiles_blue:player_blue_id(username),
+                            profiles_red:player_red_id(username)
+                        `)
+                        .eq("id", roomId)
+                        .single();
+
+                    if (refreshError || !freshRoom) {
+                        console.error(
+                            "Ne mogu osvježiti podatke sobe:",
+                            refreshError
+                        );
+                        return;
+                    }
+
+                    setRoomData(freshRoom);
+                    setGameState(freshRoom.game_state);
+
+                    const opponentJoined =
+                        freshRoom.status === "in_progress" &&
+                        !!getProfileUsername(freshRoom.profiles_red);
+
+                    if (
+                        opponentJoined &&
+                        !roomSnapshotRef.current.gameStartAt
+                    ) {
+                        const startsAt = Date.now() + 5_000;
+
+                        roomSnapshotRef.current.gameStartAt = startsAt;
+                        setGameStartAt(startsAt);
+                        setPreGameCountdown(5);
+
+                        if (myRole === "blue") {
+                            sendThroughChannel({
+                                type: "ROOM_GAME_START",
+                                role: myRole,
+                                startsAt,
+                            });
+                        }
+                    }
                 }
             ).on(
                 "postgres_changes",
@@ -220,6 +298,23 @@ export default function GameRoomPage() {
                         return;
                     }
 
+                    if (msg.type === "ROOM_GAME_START") {
+                        if (typeof msg.startsAt === "number") {
+                            roomSnapshotRef.current.gameStartAt = msg.startsAt;
+                            setGameStartAt(msg.startsAt);
+                            setPreGameCountdown(
+                                Math.max(
+                                    0,
+                                    Math.ceil(
+                                        (msg.startsAt - Date.now()) / 1000
+                                    )
+                                )
+                            );
+                        }
+
+                        return;
+                    }
+
                     /*
                         Neko je refreshovao stranicu i traži
                         trenutno stanje Room komponente.
@@ -242,6 +337,8 @@ export default function GameRoomPage() {
                                 snapshot.blueScore,
                             redScore:
                                 snapshot.redScore,
+                            gameStartAt:
+                                snapshot.gameStartAt,
                         });
 
                         return;
@@ -287,6 +384,23 @@ export default function GameRoomPage() {
                             );
                         }
 
+                        if (
+                            typeof msg.gameStartAt === "number"
+                        ) {
+                            roomSnapshotRef.current.gameStartAt =
+                                msg.gameStartAt;
+
+                            setGameStartAt(msg.gameStartAt);
+                            setPreGameCountdown(
+                                Math.max(
+                                    0,
+                                    Math.ceil(
+                                        (msg.gameStartAt - Date.now()) / 1000
+                                    )
+                                )
+                            );
+                        }
+
                         return;
                     }
                 }
@@ -319,6 +433,73 @@ export default function GameRoomPage() {
             supabase.removeChannel(channel);
         };
     }, [roomId, myRole]);
+
+    useEffect(() => {
+        if (
+            !roomData ||
+            roomData.status !== "waiting" ||
+            getProfileUsername(roomData?.profiles_red)
+        ) {
+            return;
+        }
+
+        const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+        const timer = setInterval(() => {
+            setRollingLetter(
+                letters[Math.floor(Math.random() * letters.length)]
+            );
+        }, 220);
+
+        return () => clearInterval(timer);
+    }, [
+        roomData?.status,
+        getProfileUsername(roomData?.profiles_red),
+    ]);
+
+    useEffect(() => {
+        const currentRedUsername =
+            getProfileUsername(roomData?.profiles_red);
+
+        if (
+            roomData?.status !== "in_progress" ||
+            !currentRedUsername ||
+            gameStartAt !== null
+        ) {
+            return;
+        }
+
+        const startsAt = Date.now() + 5_000;
+
+        roomSnapshotRef.current.gameStartAt = startsAt;
+        setGameStartAt(startsAt);
+        setPreGameCountdown(5);
+    }, [
+        roomData?.status,
+        roomData?.profiles_red,
+        gameStartAt,
+    ]);
+
+    useEffect(() => {
+        if (!gameStartAt) return;
+
+        const tick = () => {
+            const left = Math.max(
+                0,
+                Math.ceil(
+                    (gameStartAt - Date.now()) / 1000
+                )
+            );
+
+            setPreGameCountdown(left);
+        };
+
+        tick();
+
+        const timer = setInterval(tick, 100);
+
+        return () => clearInterval(timer);
+    }, [gameStartAt]);
 
     const sendBroadcast = async (payload: any) => {
         const channel = channelRef.current;
@@ -414,8 +595,31 @@ export default function GameRoomPage() {
             channelRef.current = null;
         }
 
-        router.push("/");
+        router.push("/home");
     };
+
+    const blueUsername =
+        getProfileUsername(roomData?.profiles_blue) || "Plavi";
+
+    const redUsername =
+        getProfileUsername(roomData?.profiles_red);
+
+    const blueInitial =
+        blueUsername.charAt(0).toUpperCase();
+
+    const redInitial =
+        redUsername
+            ? redUsername.charAt(0).toUpperCase()
+            : rollingLetter;
+
+    const opponentMatched =
+        roomData?.status === "in_progress" &&
+        !!redUsername;
+
+    const gameReady =
+        opponentMatched &&
+        gameStartAt !== null &&
+        preGameCountdown <= 0;
 
     if (loading) {
         return (
@@ -438,7 +642,7 @@ export default function GameRoomPage() {
 
     if(roomData.status === "deleted"){
         setTimeout(() => {
-            redirect('/')
+            redirect('/home')
         }, 3000)
         return (
             <div className="flex flex-col h-screen items-center justify-center bg-background text-red-500 gap-2">
@@ -450,6 +654,16 @@ export default function GameRoomPage() {
         );
     }
 
+    const gameNames = [
+        "Slagalica",
+        "Moj Broj",
+        "Skocko",
+        "Ko Zna Zna",
+        "Spojnice",
+        "Asocijacije",
+        "Rezultati",
+    ];
+
     return (
         <div className="flex flex-col items-center justify-between min-h-screen p-6 bg-background text-text">
             <GameHeader
@@ -458,28 +672,76 @@ export default function GameRoomPage() {
                 player2Score={localScoreRed}
                 timeLeft={currentHeaderTime}
                 isSubmitted={false}
-                blueName={ roomData?.profiles_blue?.username}
-                redName={roomData?.profiles_red?.username}
+                blueName={blueUsername}
+                redName={redUsername ?? undefined}
             />
 
             <main className="flex flex-col items-center justify-center text-center my-auto w-full max-w-md gap-4">
-                {roomData?.status === "waiting" ? (
-                    <div className="flex flex-col items-center gap-3 p-6 bg-surface border border-border rounded-2xl w-full animate-pulse">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                {!gameReady ? (
+                    <div className="flex flex-col items-center gap-5 p-6 bg-surface border border-border rounded-3xl w-full shadow-xl overflow-hidden">
+                        <div className="flex items-center justify-center gap-5 w-full">
+                            <div className="flex flex-col items-center gap-2 min-w-[92px]">
+                                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-500/15 border border-blue-500/40 text-blue-400 text-2xl font-black shadow-[0_0_24px_rgba(59,130,246,0.12)]">
+                                    {blueInitial}
+                                </div>
 
-                        <h2 className="text-base font-bold">
-                            Čekamo protivnika da
-                            uđe...
-                        </h2>
+                                <span className="max-w-[92px] truncate text-xs font-bold text-text">
+                                    {blueUsername}
+                                </span>
+                            </div>
+
+                            <div className="text-text-muted text-xs font-black uppercase">
+                                VS
+                            </div>
+
+                            <div className="flex flex-col items-center gap-2 min-w-[92px]">
+                                <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-red-500/15 border border-red-500/40 text-red-400 shadow-[0_0_24px_rgba(239,68,68,0.12)]">
+                                    <span
+                                        key={redInitial}
+                                        className="text-2xl font-black animate-in slide-in-from-top-6 fade-in duration-200"
+                                    >
+                                        {redInitial}
+                                    </span>
+                                </div>
+
+                                <span className="max-w-[92px] truncate text-xs font-bold text-text">
+                                    {redUsername || "Tražimo igrača..."}
+                                </span>
+                            </div>
+                        </div>
+
+                        {!opponentMatched ? (
+                            <div className="flex flex-col items-center gap-2">
+                                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+
+                                <span className="text-xs font-bold text-text-secondary">
+                                    Čekamo protivnika da uđe...
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center gap-2 animate-in fade-in zoom-in-95">
+                                <span className="text-[10px] uppercase tracking-widest font-black text-emerald-500">
+                                    Protivnik pronađen
+                                </span>
+
+                                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 border border-primary/30 text-primary text-2xl font-black">
+                                    {preGameCountdown}
+                                </div>
+
+                                <span className="text-xs font-bold text-text-secondary">
+                                    Igra počinje za {preGameCountdown}s
+                                </span>
+                            </div>
+                        )}
                     </div>
-                ) :  (
+                ) : (
                     <div className="flex flex-col items-center gap-4 w-full">
                         <span className="text-[10px] uppercase font-bold text-text-secondary bg-surface-light px-2 py-1 rounded-md">
-                            Igra {gameIndex + 1} /
-                            6 • Runda {round} / 2
+                            {gameNames[gameIndex] ?? ""}
+                            {gameIndex !== 6 && ` / Runda ${round} / 2`}
                         </span>
 
-                         {isConnected &&
+                          {isConnected &&
                             gameIndex === 0 &&
                             myRole &&
                             gameState?.rec && (
@@ -494,7 +756,7 @@ export default function GameRoomPage() {
                                     onTimerTick={time => setCurrentHeaderTime(time)}
                                 />
                             )} 
-
+                            
                             {isConnected &&
                             gameIndex === 1 &&
                             myRole &&
@@ -542,7 +804,7 @@ export default function GameRoomPage() {
                                     onNextRound={ handleNextRound }
                                     onTimerTick={time => setCurrentHeaderTime(time)}
                                 />
-                            )} 
+                            )}  
 
                              {isConnected &&
                             gameIndex === 4 &&
@@ -551,7 +813,7 @@ export default function GameRoomPage() {
                                 <Spojnice
                                     myRole={myRole}
                                     round={round}
-                                    data={round === 1 ? gameState.spojnice.runda_1: gameState.spojnice.runda_2}
+                                    data={round === 1 ? gameState.spojnice.runda_1 : gameState.spojnice.runda_2}
                                     sendBroadcast={sendBroadcast}
                                     incomingBroadcast={lastBroadcastPayload}
                                     onScoreSubmit={ handleScoreSubmit }
@@ -580,35 +842,15 @@ export default function GameRoomPage() {
                             gameIndex === 6 &&
                             myRole && (
                                 <EndScreen
-                                    myRole={
-                                        myRole
-                                    }
-                                    blueScore={
-                                        localScoreBlue
-                                    }
-                                    redScore={
-                                        localScoreRed
-                                    }
-                                    blueName={
-                                        roomData
-                                            ?.profiles_blue
-                                            ?.username ||
-                                        "Plavi"
-                                    }
-                                    redName={
-                                        roomData
-                                            ?.profiles_red
-                                            ?.username ||
-                                        "Crveni"
-                                    }
-                                    roomId={
-                                        roomId
-                                    }
-                                    onLeave={
-                                        handleLeaveGame
-                                    }
+                                    myRole={myRole}
+                                    blueScore={localScoreBlue}
+                                    redScore={localScoreRed}
+                                    blueName={blueUsername}
+                                    redName={redUsername || "Crveni"}
+                                    roomId={roomId}
+                                    onLeave={handleLeaveGame}
                                 />
-                            )}
+                            )} 
                     </div>
                 )}
             </main>

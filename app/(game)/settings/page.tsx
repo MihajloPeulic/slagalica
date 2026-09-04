@@ -3,7 +3,7 @@ import {
     User,
     ChevronRight,
     Settings as SettingsIcon,
-    ChevronLeft,
+    ArrowLeft,
 } from "lucide-react";
 
 import LogOutButton from "./LogOutButton";
@@ -16,37 +16,27 @@ export default function SettingsPage() {
             <div className="absolute right-0 top-0 -z-10 h-[260px] w-[260px] rounded-full bg-primary/10 blur-[120px] pointer-events-none" />
 
             {/* HEADER */}
-            <header className="z-10 mb-7 flex items-center gap-3">
+           <header className="mb-8 flex items-center justify-between">
                 <Link
-                    href="/"
-                    className="
-                        flex h-9 w-9 items-center justify-center
-                        rounded-xl
-                        border border-border
-                        bg-surface
-                        text-text-secondary
-                        transition
-                        hover:bg-surface-light
-                        hover:text-text
-                    "
+                    href="/home"
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-surface transition-colors hover:bg-surface-light"
+                    aria-label="Nazad"
                 >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ArrowLeft className="h-4 w-4" />
                 </Link>
 
-                <div className="flex items-center gap-2">
-                    <SettingsIcon className="h-5 w-5 text-primary" />
+                <h1 className="text-xs font-bold uppercase tracking-[0.18em] text-text-secondary">
+                    Podešavanja
+                </h1>
 
-                    <h1 className="text-xl font-black tracking-tight text-text">
-                        Podešavanja
-                    </h1>
-                </div>
+                <div className="h-9 w-9" />
             </header>
 
             {/* SETTINGS LIST */}
             <div className="z-10 overflow-hidden rounded-2xl border border-border bg-surface/70">
 
                 <Link
-                    href="/settings/account"
+                    href="/settings/nalog"
                     className="
                         group
                         flex items-center justify-between

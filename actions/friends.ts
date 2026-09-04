@@ -2,6 +2,10 @@
 
 import { getCurrentUserWithProfile } from "@/data/auth"
 import { createServerSupabaseClient } from "@/utils/supabase/server"
+import type { Database } from "@/types/supabase";
+
+type Friend =
+    Database["public"]["Tables"]["friends"]["Row"];
 
 
 export async function AddAFriend(username: string) {
@@ -126,4 +130,90 @@ export async function RejectFriendRequest(reqId: number) {
     }
 
     return {success: true}
+}
+
+
+
+export async function GetFriendshipAndFriend(friendId: string, myId: string) {
+
+    const supabase = await createServerSupabaseClient()
+
+     const {
+        data: friend,
+        error: friendError,
+    } = await supabase
+        .from("profiles")
+        .select(`
+            id,
+            username,
+            experience,
+            level,
+            avatar_url
+        `)
+        .eq("id", friendId)
+        .maybeSingle();
+
+    if (
+        friendError ||
+        !friend
+    ) {
+       throw new Error(friendError?.message)
+    }
+
+    const {
+        data: friendship,
+        error: friendshipError,
+    } = await supabase
+        .rpc("get_friendship_between_users", {
+            p_user_id: myId,
+            p_friend_id: friendId,
+        })
+        .maybeSingle();
+
+    if(friendshipError || !friendship){
+        throw new Error(friendshipError?.message)
+    }
+    
+
+    return {friendship: friendship as Friend, friend: friend}
+}
+
+
+export async function GetFriendship(
+    friendId: string,
+    myId: string
+) {
+    const supabase =
+        await createServerSupabaseClient();
+
+    const {
+        data: friendship,
+        error: friendshipError,
+    } = await supabase
+        .rpc(
+            "get_friendship_between_users",
+            {
+                p_user_id: myId,
+                p_friend_id: friendId,
+            }
+        )
+        .maybeSingle();
+
+    if (friendshipError) {
+        throw new Error(
+            friendshipError.message
+        );
+    }
+
+    if (!friendship) {
+        return {
+            isFriend: false as const,
+            friendship: null,
+        };
+    }
+
+    return {
+        isFriend: true as const,
+        friendship: friendship as Friend,
+    };
 }

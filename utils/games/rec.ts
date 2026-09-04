@@ -40,6 +40,8 @@ async function generateLetters() {
         "LJ",
         "NJ",
         "NJ",
+        "DŽ",
+        "DŽ",
     ];
 
     const randomFrom = (pool: string[]) =>

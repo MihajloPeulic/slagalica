@@ -48,16 +48,13 @@ interface PronadjiRecProps {
 }
 
 function calculateSlagalicaScores(
-    blueWord: string,
+    blueLen: number,
     isBlueValid: boolean,
-    redWord: string,
+    redLen: number,
     isRedValid: boolean,
-    computerWord: string,
+    compLen: number,
     round: number
 ) {
-    const blueLen = isBlueValid ? blueWord.length : 0;
-    const redLen = isRedValid ? redWord.length : 0;
-    const compLen = computerWord?.length ?? 0;
 
     const blueBreakdown: ScoreBreakdown = {
         letters: blueLen,
@@ -388,7 +385,7 @@ export function PronadjiRec({
             "A", "E", "I", "O", "U",
             "N", "R", "S", "T", "K", "L", "J",
             "V", "D", "P", "C", "M", "B", "G", "Z",
-            "Š", "Č", "Ć", "Ž", "Đ", "LJ", "NJ",
+            "Š", "Č", "Ć", "Ž", "Đ", "LJ", "NJ", "DŽ",
         ];
 
         const timer = setInterval(() => {
@@ -722,20 +719,51 @@ export function PronadjiRec({
                 : finalOpponentWord;
 
         try {
-            const [blueRes, redRes] = await Promise.all([
+            const longestWord = initialTiles?.najduza_rec ?? "";
+
+            /*
+                Server action je jedini source of truth za broj slova.
+
+                verifyWordAction vraća `points`, gdje su DŽ, NJ i LJ
+                već uračunati kao po jedno slovo.
+            */
+            const [blueRes, redRes, computerRes] = await Promise.all([
                 blueWordStr
                     ? verifyWordAction(blueWordStr)
-                    : { success: false, compLen: 0 },
+                    : { success: false, points: 0 },
 
                 redWordStr
                     ? verifyWordAction(redWordStr)
-                    : { success: false, compLen: 0 },
+                    : { success: false, points: 0 },
+
+                longestWord
+                    ? verifyWordAction(longestWord)
+                    : { success: false, points: 0 },
             ]);
 
-            const isBlueValid = !!blueRes.success;
-            const isRedValid = !!redRes.success;
+            const isBlueValid = blueRes.success;
+            const isRedValid = redRes.success;
 
-            const longestWord = initialTiles?.najduza_rec ?? "";
+            const blueLen =
+                blueRes.success &&
+                "points" in blueRes &&
+                typeof blueRes.points === "number"
+                    ? blueRes.points
+                    : 0;
+
+            const redLen =
+                redRes.success &&
+                "points" in redRes &&
+                typeof redRes.points === "number"
+                    ? redRes.points
+                    : 0;
+
+            const compLen =
+                computerRes.success &&
+                "points" in computerRes &&
+                typeof computerRes.points === "number"
+                    ? computerRes.points
+                    : 0;
 
             const {
                 bluePoints: bluePts,
@@ -743,11 +771,11 @@ export function PronadjiRec({
                 blueBreakdown,
                 redBreakdown,
             } = calculateSlagalicaScores(
-                blueWordStr,
+                blueLen,
                 isBlueValid,
-                redWordStr,
+                redLen,
                 isRedValid,
-                longestWord,
+                compLen,
                 round
             );
 

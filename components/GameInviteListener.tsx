@@ -130,6 +130,8 @@ export default function GameInviteListener({
                             router.push(
                                 `/igra/${incomingInvite.roomId}`
                             );
+
+                            setIncomingInvite(null);
                         }}
                         aria-label="Prihvati izazov"
                         className="

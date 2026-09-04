@@ -1,14 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { User, UserPlus, Loader2, Swords, X } from "lucide-react";
+import { UserPlus, Loader2, Swords, X, ChevronRight, Trophy, UserRound } from "lucide-react";
 import { AddAFriend } from "@/actions/friends";
 import { getFriends } from "@/data/friends"; 
 import { useRouter } from "next/navigation";
-import { createGameRoom } from "@/actions/game"; // Pretpostavljam putanju do tvoje akcije
+import { createGameRoom } from "@/actions/game";
+import { useOnlinePresence } from "./OnlineUserContext";
 
 export default function FriendsModal() {
     const router = useRouter();
+
+    const {
+        isUserOnline,
+        presenceReady,
+    } = useOnlinePresence();
 
     // 1. Tabovi i pretraga
     const [activeTab, setActiveTab] = useState<"friends" | "add">("friends");
@@ -86,123 +92,258 @@ export default function FriendsModal() {
         }
     }
 
+
+    function handleOpenProfile(friendId: string) {
+        router.push(`/prijatelj/${friendId}`);
+    }
+
+    function getInitial(username: string) {
+        return username?.trim()?.charAt(0)?.toUpperCase() || "?";
+    }
+
     return (
-        <div className="w-[280px] sm:w-[320px] bg-surface border border-border p-3 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.6)] animate-modal-in flex flex-col z-50">
-            
-            {/* Header sa Tabovima */}
-            <div className="flex items-center gap-4 mb-2 border-b border-border/50 px-2">
-                <button
-                    onClick={() => {
-                        setActiveTab("friends");
-                        setSelectedFriendId(null); // Resetuj selekciju pri promeni taba
-                    }}
-                    className={`text-[11px] font-bold uppercase tracking-wider pb-2 border-b-2 transition-colors -mb-[1px]
-                        ${activeTab === "friends" ? "border-primary text-primary" : "border-transparent text-text-secondary hover:text-text"}
-                    `}
-                >
-                    Tvoji prijatelji
-                </button>
-                <button
-                    onClick={() => {
-                        setActiveTab("add");
-                        setErrorMessage("");
-                        setSuccessMessage("");
-                        setSelectedFriendId(null);
-                    }}
-                    className={`text-[11px] font-bold uppercase tracking-wider pb-2 border-b-2 transition-colors -mb-[1px]
-                        ${activeTab === "add" ? "border-primary text-primary" : "border-transparent text-text-secondary hover:text-text"}
-                    `}
-                >
-                    Dodaj prijatelja
-                </button>
+        <div className="w-[340px] sm:w-[390px] overflow-hidden rounded-3xl border border-border/70 bg-surface shadow-[0_24px_80px_rgba(0,0,0,0.55)] animate-modal-in flex flex-col z-50">
+            <div className="px-4 pt-4 pb-3 border-b border-border/60 bg-gradient-to-b from-surface-light/60 to-transparent">
+                <div className="flex items-center justify-between mb-3">
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">
+                            Social
+                        </p>
+                        <h2 className="text-base font-black text-text">
+                            Prijatelji
+                        </h2>
+                    </div>
+
+                    {activeTab === "friends" && (
+                        <div className="flex items-center gap-1.5 rounded-full border border-border bg-background/70 px-2.5 py-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                            <span className="text-[10px] font-bold text-text-secondary">
+                                {friends.filter(friend => presenceReady && isUserOnline(friend.id)).length} online
+                            </span>
+                        </div>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-1 rounded-xl border border-border/60 bg-background/60 p-1">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setActiveTab("friends");
+                            setSelectedFriendId(null);
+                        }}
+                        className={`h-8 rounded-lg text-[11px] font-black uppercase tracking-wide transition-all ${
+                            activeTab === "friends"
+                                ? "bg-surface-light text-text shadow-sm"
+                                : "text-text-secondary hover:text-text"
+                        }`}
+                    >
+                        Prijatelji
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setActiveTab("add");
+                            setErrorMessage("");
+                            setSuccessMessage("");
+                            setSelectedFriendId(null);
+                        }}
+                        className={`h-8 rounded-lg text-[11px] font-black uppercase tracking-wide transition-all ${
+                            activeTab === "add"
+                                ? "bg-surface-light text-text shadow-sm"
+                                : "text-text-secondary hover:text-text"
+                        }`}
+                    >
+                        Dodaj
+                    </button>
+                </div>
             </div>
-            
-            {/* Scrollable sadržaj */}
-            <div className="flex flex-col gap-1 max-h-[300px] min-h-[150px] overflow-y-auto custom-scrollbar pr-1 pt-1">
-                
-                {/* TAB: TVOJI PRIJATELJI */}
+
+            <div className="flex max-h-[420px] min-h-[190px] flex-col overflow-y-auto custom-scrollbar p-3">
                 {activeTab === "friends" && (
                     <>
                         {isLoadingFriends ? (
-                            <div className="flex h-[100px] items-center justify-center">
-                                <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
+                            <div className="flex min-h-[180px] items-center justify-center">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary/60" />
                             </div>
                         ) : friends.length > 0 ? (
-                            friends.map((friend, index) => (
-                                <div 
-                                    key={friend.id || friend.username || index} 
-                                    className="group flex flex-col justify-center min-h-[52px] p-2 rounded-xl border border-transparent hover:border-border hover:bg-surface-light transition-all cursor-pointer"
-                                    onClick={() => {
-                                        // Ako nije već selektovan, selektuj ga
-                                        if (selectedFriendId !== friend.id) {
-                                            setSelectedFriendId(friend.id);
-                                        }
-                                    }}
-                                >
-                                    {selectedFriendId === friend.id ? (
-                                        // PRIKAZ: DUGMIĆI ZA INVITE (Kada se klikne na prijatelja)
-                                        <div className="flex items-center justify-between gap-2 w-full animate-in fade-in zoom-in-95 duration-200">
+                            <div className="flex flex-col gap-2">
+                                {friends.map((friend, index) => {
+                                    const selected = selectedFriendId === friend.id;
+                                    const online = presenceReady && isUserOnline(friend.id);
+
+                                    return (
+                                        <div
+                                            key={friend.id || friend.username || index}
+                                            className={`overflow-hidden rounded-2xl border transition-all ${
+                                                selected
+                                                    ? "border-primary/35 bg-primary/[0.04] shadow-[0_10px_30px_rgba(0,0,0,0.18)]"
+                                                    : "border-border/60 bg-background/35 hover:border-border hover:bg-surface-light/40"
+                                            }`}
+                                        >
                                             <button
-                                                disabled={isInviting}
-                                                onClick={(e) => { 
-                                                    e.stopPropagation(); // Sprečava da se zatvori zbog onClick-a parent diva
-                                                    handleInvite(friend.id); 
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedFriendId(
+                                                        selected ? null : friend.id
+                                                    );
                                                 }}
-                                                className="flex-1 flex items-center justify-center gap-2 bg-primary text-black text-xs font-bold h-9 rounded-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-70"
+                                                className="group flex w-full items-center gap-3 p-3 text-left"
                                             >
-                                                {isInviting ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                    <Swords className="h-4 w-4" />
-                                                )}
-                                                {isInviting ? "Povezivanje..." : "Izazovi"}
-                                            </button>
-                                            
-                                            <button
-                                                disabled={isInviting}
-                                                onClick={(e) => { 
-                                                    e.stopPropagation(); 
-                                                    setSelectedFriendId(null); 
-                                                }}
-                                                className="flex items-center justify-center h-9 w-9 bg-surface border border-border text-text-secondary hover:text-text hover:bg-surface-light rounded-lg transition-colors"
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        // PRIKAZ: NORMALNE INFORMACIJE (Ime, slika, XP)
-                                        <div className="flex items-center justify-between w-full animate-in fade-in duration-200">
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:bg-primary group-hover:text-black transition-colors">
-                                                    <User className="h-4 w-4" />
+                                                <div className="relative shrink-0">
+                                                    <div
+                                                        className={`cursor-pointer flex h-11 w-11 items-center justify-center rounded-xl border text-base font-black transition-all ${
+                                                            selected
+                                                                ? "border-primary/40 bg-primary/15 text-primary"
+                                                                : "border-border bg-surface-light text-text group-hover:border-primary/25 group-hover:text-primary"
+                                                        }`}
+                                                    >
+                                                        {getInitial(friend.username)}
+                                                    </div>
+
+                                                    <span
+                                                        className={`absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-[3px] border-surface ${
+                                                            online
+                                                                ? "bg-emerald-500"
+                                                                : "bg-zinc-600"
+                                                        }`}
+                                                    />
                                                 </div>
-                                                <span className="font-semibold text-text text-sm">{friend.username}</span>
-                                            </div>
-                                            
-                                            <div className="text-right">
-                                                <span className="text-sm font-bold text-text">{friend.experience}</span>
-                                                <span className="text-[10px] font-medium text-text-secondary ml-1">XP</span>
-                                            </div>
+
+                                                <div className="cursor-pointer min-w-0 flex-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="truncate text-sm font-black text-text">
+                                                            {friend.username}
+                                                        </span>
+
+                                                        {online && (
+                                                            <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-emerald-500">
+                                                                Online
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="mt-1 flex items-center gap-2">
+                                                        <div className="flex items-center gap-1 text-text-secondary">
+                                                            <Trophy className="h-3 w-3" />
+                                                            <span className="text-[10px] font-bold">
+                                                                {friend.experience} XP
+                                                            </span>
+                                                        </div>
+
+                                                        <span className="text-text-secondary/30">•</span>
+
+                                                        <span
+                                                            className={`text-[10px] font-semibold ${
+                                                                !presenceReady
+                                                                    ? "text-text-secondary"
+                                                                    : online
+                                                                    ? "text-emerald-500"
+                                                                    : "text-text-secondary"
+                                                            }`}
+                                                        >
+                                                            {!presenceReady
+                                                                ? "Provjera..."
+                                                                : online
+                                                                ? "Dostupan"
+                                                                : "Offline"}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <ChevronRight
+                                                    className={`h-4 w-4 shrink-0 text-text-secondary transition-transform ${
+                                                        selected
+                                                            ? "rotate-90 text-primary"
+                                                            : "group-hover:translate-x-0.5"
+                                                    }`}
+                                                />
+                                            </button>
+
+                                            {selected && (
+                                                <div className="animate-in slide-in-from-top-1 fade-in duration-200 border-t border-border/50 bg-background/35 p-2.5">
+                                                    <div className="grid grid-cols-[1fr_1fr_40px] gap-2">
+                                                        <button
+                                                            type="button"
+                                                            disabled={isInviting}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleOpenProfile(friend.id);
+                                                            }}
+                                                            className="cursor-pointer flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-surface text-xs font-black text-text transition-all hover:border-primary/30 hover:bg-surface-light hover:text-primary active:scale-[0.98] disabled:opacity-60"
+                                                        >
+                                                            <UserRound className="h-4 w-4" />
+                                                            Profil
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            disabled={isInviting}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleInvite(friend.id);
+                                                            }}
+                                                            className="cursor-pointer flex h-10 items-center justify-center gap-2 rounded-xl bg-primary text-xs font-black text-black transition-all hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
+                                                            title="Izazovi u igru"
+                                                        >
+                                                            {isInviting ? (
+                                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                            ) : (
+                                                                <Swords className="h-4 w-4" />
+                                                            )}
+                                                            {isInviting ? "Čekaj..." : "Izazovi"}
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            disabled={isInviting}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedFriendId(null);
+                                                            }}
+                                                            className="cursor-pointer flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-surface text-text-secondary transition-all hover:bg-surface-light hover:text-text active:scale-95 disabled:opacity-60"
+                                                            aria-label="Zatvori akcije"
+                                                        >
+                                                            <X className="h-4 w-4" />
+                                                        </button>
+                                                    </div>
+
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
-                            ))
+                                    );
+                                })}
+                            </div>
                         ) : (
-                            <div className="py-10 text-center text-xs font-medium text-text-secondary">
-                                Još uvek nemaš dodatih prijatelja.
+                            <div className="flex min-h-[180px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-background/20 px-6 text-center">
+                                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-surface-light text-text-secondary">
+                                    <UserPlus className="h-5 w-5" />
+                                </div>
+
+                                <p className="text-sm font-black text-text">
+                                    Lista je prazna
+                                </p>
+
+                                <p className="mt-1 text-[10px] leading-relaxed text-text-secondary">
+                                    Dodaj prijatelje i izazovi ih direktno u partiju.
+                                </p>
                             </div>
                         )}
                     </>
                 )}
 
-                {/* TAB: DODAJ PRIJATELJA */}
                 {activeTab === "add" && (
-                    <div className="flex flex-col gap-3 p-2">
-                        {/* ... tvoj netaknuti kod za dodavanje prijatelja ... */}
-                        <p className="text-[11px] text-text-secondary leading-relaxed">
-                            Unesi korisničko ime prijatelja kako bi mu poslao zahtev.
-                        </p>
-                        
+                    <div className="flex flex-col gap-4 p-1">
+                        <div className="rounded-2xl border border-border/60 bg-background/35 p-3">
+                            <p className="text-xs font-black text-text">
+                                Pronađi igrača
+                            </p>
+
+                            <p className="mt-1 text-[10px] leading-relaxed text-text-secondary">
+                                Unesi tačno korisničko ime igrača kojeg želiš dodati.
+                            </p>
+                        </div>
+
                         <div className="flex flex-col gap-2">
                             <div className="flex items-center gap-2">
                                 <input
@@ -210,36 +351,48 @@ export default function FriendsModal() {
                                     value={searchQuery}
                                     onChange={(e) => {
                                         setSearchQuery(e.target.value);
+
                                         if (errorMessage || successMessage) {
                                             setErrorMessage("");
                                             setSuccessMessage("");
                                         }
                                     }}
                                     placeholder="Korisničko ime..."
-                                    className={`flex-1 bg-background border rounded-xl px-3 py-2 text-sm font-medium text-text focus:outline-none focus:border-primary transition-colors
-                                        ${errorMessage ? 'border-red-500/50' : successMessage ? 'border-green-500/50' : 'border-border'}
-                                    `}
+                                    className={`h-11 min-w-0 flex-1 rounded-xl border bg-background px-3 text-sm font-bold text-text outline-none transition-colors placeholder:text-text-secondary/50 ${
+                                        errorMessage
+                                            ? "border-red-500/50 focus:border-red-500"
+                                            : successMessage
+                                            ? "border-emerald-500/50 focus:border-emerald-500"
+                                            : "border-border focus:border-primary"
+                                    }`}
                                     disabled={loading}
                                 />
-                                <button 
+
+                                <button
+                                    type="button"
                                     disabled={!searchQuery.trim() || loading}
                                     onClick={(e) => {
                                         e.preventDefault();
                                         handleAdd();
                                     }}
-                                    className="flex h-9 w-10 shrink-0 items-center justify-center bg-primary text-black rounded-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+                                    className="cursor-pointer flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-black transition-all hover:brightness-105 active:scale-95 disabled:pointer-events-none disabled:opacity-50"
                                 >
-                                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                                    {loading ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <UserPlus className="h-4 w-4" />
+                                    )}
                                 </button>
                             </div>
 
                             {errorMessage && (
-                                <p className="text-[11px] font-medium text-red-500 pl-1 animate-in fade-in slide-in-from-top-1">
+                                <p className="animate-in fade-in slide-in-from-top-1 rounded-lg bg-red-500/10 px-2.5 py-2 text-[10px] font-bold text-red-500">
                                     {errorMessage}
                                 </p>
                             )}
+
                             {successMessage && (
-                                <p className="text-[11px] font-medium text-green-500 pl-1 animate-in fade-in slide-in-from-top-1">
+                                <p className="animate-in fade-in slide-in-from-top-1 rounded-lg bg-emerald-500/10 px-2.5 py-2 text-[10px] font-bold text-emerald-500">
                                     {successMessage}
                                 </p>
                             )}

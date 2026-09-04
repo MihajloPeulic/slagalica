@@ -48,7 +48,7 @@ export async function RegisterAction(formData: FormData) {
         return { error: authError.message };
     }
 
-    redirect("/")
+    redirect("/home")
 
 }
 
@@ -68,7 +68,7 @@ export async function LoginAction(formData: FormData) {
         return { error: authError.message };
     }
 
-     redirect("/")
+     redirect("/home")
 
 }
 

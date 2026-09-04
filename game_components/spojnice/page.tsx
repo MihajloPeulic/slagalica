@@ -501,7 +501,25 @@ export function Spojnice({
             onTimerTick(remaining);
 
             if (remaining <= 0) {
-                onNextRound();
+                /*
+                    BITNO:
+                    round NE smije biti dependency ovog effecta.
+
+                    Kada parent prebaci round 1 -> 2, komponenta se prvo
+                    rerenderuje sa round=2, ali stari phase još može biti
+                    "intermission", a stari intermissionExpiresAt je već istekao.
+
+                    Ako je round dependency, effect se tada odmah ponovo pokrene
+                    i drugi put pozove onNextRound, pa parent vidi round=2 i
+                    prebaci na sljedeću igru.
+
+                    Kao u Skočku, samo završavamo trenutnu intermisiju i
+                    prepustimo parentu da odluči da li ide runda 2 ili nova igra.
+                */
+                if (isAuthority) {
+                    onNextRound();
+                }
+
                 return true;
             }
 
@@ -515,7 +533,7 @@ export function Spojnice({
         }, 250);
 
         return () => clearInterval(timer);
-    }, [phase, intermissionExpiresAt, onNextRound]);
+    }, [phase, intermissionExpiresAt, isAuthority]);
 
     function executeTurnSwitch() {
         if (!isAuthority) return;

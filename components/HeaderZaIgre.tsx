@@ -6,7 +6,7 @@ interface GameHeaderProps {
     timeLeft: number;
     isSubmitted: boolean;
     blueName: string;
-    redName: string;
+    redName: string | undefined;
     role: "blue" | "red" | null;
 }
 

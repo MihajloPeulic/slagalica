@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Trophy, Frown, Sparkles, LogOut, Loader2, ArrowRight } from "lucide-react";
 import { createClientSupabaseClient } from "@/utils/supabase/client";
+import { finishGameAndUpdateFriendStats } from "@/actions/game";
 
 interface EndScreenProps {
     myRole: "blue" | "red";
@@ -86,16 +87,26 @@ export function EndScreen({ myRole, blueScore, redScore, blueName, redName, room
     }, [isWinner, isTie, diff, supabase]);
 
     // ================= 3. KRAJ PARTIJE =================
-    const handleFinishAndLeave = async () => {
-        // Plavi igrač (kao host) postavlja sobu na finished
+    const handleFinishAndLeave =
+        async () => {
+
         if (myRole === "blue") {
-            await supabase
-                .from("game_rooms")
-                .update({ status: "finished" })
-                .eq("id", roomId);
+            const res =
+                await finishGameAndUpdateFriendStats(
+                    roomId,
+                    blueScore,
+                    redScore
+                );
+
+            if (res?.error) {
+                console.error(
+                    res.error
+                );
+
+                return;
+            }
         }
-        
-        // Zovi funkciju iz roditelja koja prekida socket i radi redirect
+
         onLeave();
     };
 
