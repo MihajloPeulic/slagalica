@@ -15,7 +15,7 @@ export async function RegisterAction(formData: FormData) {
     const username = String(formData.get("username"))
     
     const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const PASSWORD_REGEX = /^(?=.*\d)(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
+    const PASSWORD_REGEX = /^(?=.*\d)(?=.*[A-Z]).{8,}$/;
 
 
     if(!EMAIL_REGEX.test(email)){
@@ -27,7 +27,7 @@ export async function RegisterAction(formData: FormData) {
     }
 
     if (!PASSWORD_REGEX.test(password)) {
-      return {error: "Lozinka mora imati najmanje 8 karaktera, bar jedno veliko slovo, bar jedan broj i bar jedan specijalni znak."}
+      return {error: "Lozinka mora imati najmanje 8 karaktera, bar jedno veliko slovo i bar jedan broj."}
     }
 
     if(password !== confirm_password){
