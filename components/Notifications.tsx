@@ -59,7 +59,7 @@ export default function Notifications() {
                         onClick={() => setIsOpen(false)}
                     />
 
-                    <div className="absolute bottom-full right-1/2 translate-x-1/2 mb-4 w-[300px] sm:w-[340px] bg-surface border border-border p-3 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.6)] animate-modal-in z-50 flex flex-col">
+                    <div className="absolute bottom-full right-[-15%] translate-x-1/2 mb-4 w-[300px] sm:w-[340px] bg-surface border border-border p-3 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.6)] animate-modal-in z-50 flex flex-col">
                         
                         {/* Header Modala */}
                         <div className="flex items-center justify-between mb-2 border-b border-border/50 px-2 pb-2">

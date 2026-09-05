@@ -102,8 +102,8 @@ export default function FriendsModal() {
     }
 
     return (
-        <div className="w-[340px] sm:w-[390px] overflow-hidden rounded-3xl border border-border/70 bg-surface shadow-[0_24px_80px_rgba(0,0,0,0.55)] animate-modal-in flex flex-col z-50">
-            <div className="px-4 pt-4 pb-3 border-b border-border/60 bg-gradient-to-b from-surface-light/60 to-transparent">
+        <div className="z-50 flex w-[calc(100vw-24px)] max-w-[390px] max-h-[calc(100dvh-24px)] flex-col overflow-hidden rounded-2xl border border-border/70 bg-surface shadow-[0_24px_80px_rgba(0,0,0,0.55)] animate-modal-in min-[380px]:w-[calc(100vw-32px)] min-[380px]:rounded-3xl sm:w-[390px]">
+            <div className="shrink-0 border-b border-border/60 bg-gradient-to-b from-surface-light/60 to-transparent px-3 pb-3 pt-3 min-[360px]:px-4 min-[360px]:pt-4">
                 <div className="flex items-center justify-between mb-3">
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">
@@ -159,7 +159,7 @@ export default function FriendsModal() {
                 </div>
             </div>
 
-            <div className="flex max-h-[420px] min-h-[190px] flex-col overflow-y-auto custom-scrollbar p-3">
+            <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-2.5 min-[360px]:p-3">
                 {activeTab === "friends" && (
                     <>
                         {isLoadingFriends ? (
@@ -188,11 +188,11 @@ export default function FriendsModal() {
                                                         selected ? null : friend.id
                                                     );
                                                 }}
-                                                className="group flex w-full items-center gap-3 p-3 text-left"
+                                                className="group flex w-full items-center gap-2.5 p-2.5 text-left min-[360px]:gap-3 min-[360px]:p-3"
                                             >
                                                 <div className="relative shrink-0">
                                                     <div
-                                                        className={`cursor-pointer flex h-11 w-11 items-center justify-center rounded-xl border text-base font-black transition-all ${
+                                                        className={`cursor-pointer flex h-10 w-10 items-center justify-center rounded-xl border text-base font-black transition-all min-[360px]:h-11 min-[360px]:w-11 ${
                                                             selected
                                                                 ? "border-primary/40 bg-primary/15 text-primary"
                                                                 : "border-border bg-surface-light text-text group-hover:border-primary/25 group-hover:text-primary"
@@ -262,7 +262,7 @@ export default function FriendsModal() {
 
                                             {selected && (
                                                 <div className="animate-in slide-in-from-top-1 fade-in duration-200 border-t border-border/50 bg-background/35 p-2.5">
-                                                    <div className="grid grid-cols-[1fr_1fr_40px] gap-2">
+                                                    <div className="grid grid-cols-[1fr_1fr_36px] gap-1.5 min-[360px]:grid-cols-[1fr_1fr_40px] min-[360px]:gap-2">
                                                         <button
                                                             type="button"
                                                             disabled={isInviting}
@@ -301,7 +301,7 @@ export default function FriendsModal() {
                                                                 e.stopPropagation();
                                                                 setSelectedFriendId(null);
                                                             }}
-                                                            className="cursor-pointer flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-surface text-text-secondary transition-all hover:bg-surface-light hover:text-text active:scale-95 disabled:opacity-60"
+                                                            className="cursor-pointer flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-surface text-text-secondary transition-all hover:bg-surface-light hover:text-text active:scale-95 disabled:opacity-60 min-[360px]:h-10 min-[360px]:w-10"
                                                             aria-label="Zatvori akcije"
                                                         >
                                                             <X className="h-4 w-4" />

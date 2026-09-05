@@ -84,7 +84,7 @@ export default function MainHeader({profile}: {profile: Profile}) {
 
                     {/* MODAL ZA PRIJATELJE */}
                     {frModal && (
-                        <div className="absolute top-[120%] right-0 z-[100]">
+                        <div className="absolute top-[120%] right-[-15%] z-[100]">
                             <FriendsModal />
                         </div>
                     )}

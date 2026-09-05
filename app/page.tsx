@@ -1,5 +1,4 @@
 // app/page.tsx
-
 import Link from "next/link";
 import {
     ArrowRight,
@@ -10,8 +9,16 @@ import {
     Users,
     Zap,
 } from "lucide-react";
+import { getCurrentUserWithProfile } from "@/data/auth";
+import { redirect } from "next/navigation";
 
-export default function LandingPage() {
+export default async function LandingPage() {
+    const {user} = await getCurrentUserWithProfile()
+
+    if(user){
+        redirect("/home")
+    }
+
     return (
         <main className="min-h-screen overflow-hidden bg-background text-text">
 

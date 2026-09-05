@@ -665,7 +665,7 @@ export default function GameRoomPage() {
     ];
 
     return (
-        <div className="flex flex-col items-center justify-between min-h-screen p-6 bg-background text-text">
+        <div className="flex flex-col w-full items-center justify-between min-h-screen p-6 bg-background text-text">
             <GameHeader
                 role={myRole}
                 player1Score={localScoreBlue}
@@ -676,7 +676,7 @@ export default function GameRoomPage() {
                 redName={redUsername ?? undefined}
             />
 
-            <main className="flex flex-col items-center justify-center text-center my-auto w-full max-w-md gap-4">
+            <main className="mt-5 flex flex-col items-center justify-center text-center my-auto w-full max-w-md gap-4">
                 {!gameReady ? (
                     <div className="flex flex-col items-center gap-5 p-6 bg-surface border border-border rounded-3xl w-full shadow-xl overflow-hidden">
                         <div className="flex items-center justify-center gap-5 w-full">

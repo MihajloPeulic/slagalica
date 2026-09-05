@@ -15,7 +15,6 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const {profile} = data
   
   return (
-      <body className="min-h-full flex flex-col">
         <OnlinePresenceProvider>
           <div className="phone-frame">
             <GameInviteListener currentUserId={profile.id}  />
@@ -23,6 +22,5 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             {children}
           </div>
         </OnlinePresenceProvider>
-      </body>
   );
 }
