@@ -781,7 +781,7 @@ return (
 
                     {/* GAME */}
                     <div className="flex w-full items-center justify-center">
-                        {/* {isConnected &&
+                         {isConnected &&
                             gameIndex === 0 &&
                             myRole &&
                             gameState?.rec && (
@@ -845,10 +845,10 @@ return (
                                         setCurrentHeaderTime(time)
                                     }
                                 />
-                            )}*/}
+                            )}
 
-                        {/* {isConnected &&
-                            gameIndex === 0 &&
+                        {isConnected &&
+                            gameIndex === 3 &&
                             myRole &&
                             gameState?.rec && (
                                 <KoZnaZna
@@ -863,10 +863,10 @@ return (
                                         setCurrentHeaderTime(time)
                                     }
                                 />
-                            )}  */}
+                            )}  
 
                         {isConnected &&
-                            gameIndex === 0 &&
+                            gameIndex === 4 &&
                             myRole &&
                             gameState?.rec && (
                                 <Spojnice
