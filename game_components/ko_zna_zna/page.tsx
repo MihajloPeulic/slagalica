@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { HelpCircle, Clock, ArrowRight } from "lucide-react";
+import { HelpCircle, Clock, ArrowRight, Loader2 } from "lucide-react";
 
 interface Question {
     id: number;
@@ -817,248 +817,503 @@ export function KoZnaZna({
     }
 
     // ============================================================
-    // 10. LOADING
-    // ============================================================
-    if (!questions.length) {
-        return (
-            <div className="flex flex-col items-center justify-center py-12 px-5 text-center bg-surface border border-border rounded-3xl w-full max-w-[340px] shadow-lg gap-3">
-                <Clock className="h-8 w-8 text-primary animate-spin" />
-                <p className="text-xs font-bold text-text-secondary uppercase tracking-wider">
-                    Učitavanje pitanja...
-                </p>
-            </div>
-        );
-    }
+// 10. LOADING
+// ============================================================
 
-    const currentQuestion = questions[currentQuestionIndex];
-    if (!currentQuestion) return null;
-
-    // ============================================================
-    // 11. UI
-    // ============================================================
+if (!questions.length) {
     return (
-        <div className="flex flex-col items-center justify-center w-full max-w-[340px] gap-5 animate-in fade-in zoom-in-95">
-            {phase !== "intermission" ? (
-                <>
-                    {/* QUESTION DOTS */}
-                    <div className="flex items-center gap-1.5 p-2 rounded-2xl bg-surface/60 border border-border overflow-x-auto max-w-[320px]">
-                        {questionResults.map((result, index) => {
+        <div className="card-base flex min-h-48 w-full max-w-sm flex-col items-center justify-center gap-3 p-6 text-center">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+
+            <p className="secondary-text">
+                Učitavanje pitanja...
+            </p>
+        </div>
+    );
+}
+
+const currentQuestion =
+    questions[currentQuestionIndex];
+
+if (!currentQuestion) return null;
+
+// ============================================================
+// 11. UI
+// ============================================================
+
+const nobodyAnsweredCorrectly =
+    phase === "revealing" &&
+    myAnswer?.index !==
+        currentQuestion.correctIndex &&
+    oppAnswer?.index !==
+        currentQuestion.correctIndex;
+
+return (
+    <div className="flex w-full max-w-sm flex-col items-center justify-center">
+        {phase !== "intermission" ? (
+            <div className="flex w-full flex-col items-center gap-4">
+
+                {/* =========================================
+                    QUESTION PROGRESS
+                    ========================================= */}
+
+                <div className="flex items-center justify-center gap-1.5">
+                    {questionResults.map(
+                        (result, index) => {
                             let dotStyle =
-                                "bg-surface-light border-border/70 opacity-80";
+                                "border-border bg-surface-light";
 
-                            if (result === "blue") {
+                            if (
+                                result === "blue"
+                            ) {
                                 dotStyle =
-                                    "bg-blue-500 border-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)] opacity-100";
+                                    "border-blue-500 bg-blue-500";
                             }
 
-                            if (result === "red") {
+                            if (
+                                result === "red"
+                            ) {
                                 dotStyle =
-                                    "bg-red-500 border-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] opacity-100";
+                                    "border-red-500 bg-red-500";
                             }
 
-                            if (result === "tie") {
+                            if (
+                                result === "tie"
+                            ) {
                                 dotStyle =
-                                    "bg-primary border-primary shadow-[0_0_8px_rgba(245,158,11,0.5)] opacity-100";
+                                    "border-primary bg-primary";
                             }
 
-                            if (result === "gray") {
+                            if (
+                                result === "gray"
+                            ) {
                                 dotStyle =
-                                    "bg-zinc-600/70 border-zinc-500/60 opacity-100";
+                                    "border-text-muted bg-text-muted";
                             }
 
-                            const isCurrent = index === currentQuestionIndex && phase === "answering";
+                            const isCurrent =
+                                index ===
+                                    currentQuestionIndex &&
+                                phase ===
+                                    "answering";
 
                             return (
                                 <div
-                                    key={index}
-                                    className={`h-2.5 w-2.5 rounded-full border transition-all shrink-0 ${dotStyle} ${
-                                        isCurrent ? "ring-2 ring-primary/50 scale-125 animate-pulse" : ""
-                                    }`}
+                                    key={
+                                        index
+                                    }
+                                    className={`
+                                        h-2
+                                        w-2
+                                        shrink-0
+                                        rounded-full
+                                        border
+                                        transition
+                                        ${dotStyle}
+                                        ${
+                                            isCurrent
+                                                ? "scale-125 ring-2 ring-primary/30"
+                                                : ""
+                                        }
+                                    `}
                                 />
                             );
-                        })}
-                    </div>
-
-                    {/* QUESTION */}
-                    <div className="w-full max-w-[320px] text-center p-5 bg-surface/90 backdrop-blur-md border border-border rounded-3xl shadow-md min-h-[110px] flex items-center justify-center">
-                        <span className="text-base font-bold text-text leading-snug">
-                            {currentQuestion.question}
-                        </span>
-                    </div>
-
-                    {/* REVEAL POINTS */}
-                    {phase === "revealing" && (
-                        <div className="grid grid-cols-2 gap-2 w-full max-w-[320px]">
-                            <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/30">
-                                <span className="text-[10px] font-black uppercase text-blue-400">Plavi</span>
-                                <span className={`text-sm font-black ${
-                                    questionPoints.blue > 0 ? "text-emerald-400" : questionPoints.blue < 0 ? "text-red-400" : "text-text-secondary"
-                                }`}>
-                                    {questionPoints.blue > 0 ? "+" : ""}{questionPoints.blue}
-                                </span>
-                            </div>
-
-                            <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/30">
-                                <span className="text-[10px] font-black uppercase text-red-400">Crveni</span>
-                                <span className={`text-sm font-black ${
-                                    questionPoints.red > 0 ? "text-emerald-400" : questionPoints.red < 0 ? "text-red-400" : "text-text-secondary"
-                                }`}>
-                                    {questionPoints.red > 0 ? "+" : ""}{questionPoints.red}
-                                </span>
-                            </div>
-                        </div>
+                        },
                     )}
+                </div>
 
-                    {phase === "revealing" && (myPassed || oppPassed) && (
-                        <div className="flex flex-wrap items-center justify-center gap-2 w-full max-w-[320px] text-[10px] font-black uppercase tracking-wider">
+                {/* =========================================
+                    QUESTION
+                    ========================================= */}
+
+                <div className="card-base flex min-h-28 w-full items-center justify-center p-5 text-center">
+                    <p className="text-base font-black leading-relaxed text-text">
+                        {
+                            currentQuestion.question
+                        }
+                    </p>
+                </div>
+
+                {/* =========================================
+                    REVEAL SCORE
+                    ========================================= */}
+
+                {phase === "revealing" && (
+                    <div className="grid w-full grid-cols-2 gap-2">
+                        <div className="flex h-11 items-center justify-between rounded-xl border border-blue-500/20 bg-blue-500/5 px-3">
+                            <span className="text-xs font-black text-blue-400">
+                                Plavi
+                            </span>
+
+                            <span
+                                className={`
+                                    text-sm
+                                    font-black
+                                    tabular-nums
+                                    ${
+                                        questionPoints.blue >
+                                        0
+                                            ? "text-emerald-400"
+                                            : questionPoints.blue <
+                                                0
+                                              ? "text-red-400"
+                                              : "text-text-secondary"
+                                    }
+                                `}
+                            >
+                                {questionPoints.blue >
+                                0
+                                    ? "+"
+                                    : ""}
+                                {
+                                    questionPoints.blue
+                                }
+                            </span>
+                        </div>
+
+                        <div className="flex h-11 items-center justify-between rounded-xl border border-red-500/20 bg-red-500/5 px-3">
+                            <span className="text-xs font-black text-red-400">
+                                Crveni
+                            </span>
+
+                            <span
+                                className={`
+                                    text-sm
+                                    font-black
+                                    tabular-nums
+                                    ${
+                                        questionPoints.red >
+                                        0
+                                            ? "text-emerald-400"
+                                            : questionPoints.red <
+                                                0
+                                              ? "text-red-400"
+                                              : "text-text-secondary"
+                                    }
+                                `}
+                            >
+                                {questionPoints.red >
+                                0
+                                    ? "+"
+                                    : ""}
+                                {
+                                    questionPoints.red
+                                }
+                            </span>
+                        </div>
+                    </div>
+                )}
+
+                {/* =========================================
+                    PASSED INFO
+                    ========================================= */}
+
+                {phase === "revealing" &&
+                    (myPassed ||
+                        oppPassed) && (
+                        <div className="flex w-full flex-wrap items-center justify-center gap-2">
                             {myPassed && (
-                                <span className="px-2.5 py-1 rounded-lg border border-border bg-surface-light text-text-secondary">
+                                <span className="rounded-lg border border-border bg-surface px-2.5 py-1 text-[10px] font-black text-text-secondary">
                                     Ti: Dalje
                                 </span>
                             )}
 
                             {oppPassed && (
-                                <span className="px-2.5 py-1 rounded-lg border border-border bg-surface-light text-text-secondary">
-                                    Protivnik: Dalje
+                                <span className="rounded-lg border border-border bg-surface px-2.5 py-1 text-[10px] font-black text-text-secondary">
+                                    Protivnik:
+                                    Dalje
                                 </span>
                             )}
                         </div>
                     )}
 
-                    {phase === "revealing" && (
-                        <button
-                            onClick={handleContinueQuestion}
-                            disabled={myRole !== "blue"}
-                            className="w-full max-w-[320px] py-3 rounded-2xl bg-primary text-black font-black text-sm transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                            {myRole === "blue"
-                                ? "Sledeće pitanje"
-                                : "Čekamo sledeće pitanje..."}
-                        </button>
-                    )}
+                {/* =========================================
+                    OPTIONS
+                    ========================================= */}
 
-                    {/* OPTIONS */}
-                    <div className="flex flex-col gap-2.5 w-full max-w-[320px]">
-                        {currentQuestion.options.map((option, index) => {
-                            const isCorrect = index === currentQuestion.correctIndex;
-                            const didISelect = myAnswer?.index === index;
-                            const didOppSelect = oppAnswer?.index === index;
+                <div className="flex w-full flex-col gap-2">
+                    {currentQuestion.options.map(
+                        (option, index) => {
+                            const isCorrect =
+                                index ===
+                                currentQuestion.correctIndex;
 
-                            let buttonStyle = "bg-surface border-border text-text";
+                            const didISelect =
+                                myAnswer?.index ===
+                                index;
 
-                            if (phase === "revealing") {
-                                if (isCorrect) {
-                                    buttonStyle = "bg-emerald-500/20 border-emerald-500 text-emerald-400";
-                                } else if (didISelect || didOppSelect) {
-                                    buttonStyle = "bg-red-500/20 border-red-500 text-red-400";
+                            const didOppSelect =
+                                oppAnswer?.index ===
+                                index;
+
+                            let buttonStyle =
+                                "border-border bg-surface text-text";
+
+                            if (
+                                phase ===
+                                "revealing"
+                            ) {
+                                if (
+                                    isCorrect
+                                ) {
+                                    buttonStyle =
+                                        nobodyAnsweredCorrectly
+                                            ? "border-primary bg-primary/10 text-primary"
+                                            : "border-emerald-500/40 bg-emerald-500/10 text-emerald-400";
+                                } else if (
+                                    didISelect ||
+                                    didOppSelect
+                                ) {
+                                    buttonStyle =
+                                        "border-red-500/40 bg-red-500/10 text-red-400";
                                 } else {
-                                    buttonStyle = "bg-surface/30 border-border/40 opacity-40";
+                                    buttonStyle =
+                                        "border-border bg-surface text-text-muted opacity-50";
                                 }
                             }
 
-                            if (phase === "answering") {
-                                if (didISelect) {
-                                    buttonStyle = "bg-primary/20 border-primary text-primary shadow-[0_0_15px_rgba(245,158,11,0.2)]";
+                            if (
+                                phase ===
+                                "answering"
+                            ) {
+                                if (
+                                    didISelect
+                                ) {
+                                    buttonStyle =
+                                        "border-primary bg-primary/10 text-primary";
                                 } else {
-                                    buttonStyle = "hover:bg-surface-light cursor-pointer";
+                                    buttonStyle =
+                                        "border-border bg-surface text-text hover:bg-surface-light";
                                 }
                             }
 
                             return (
                                 <button
-                                    key={index}
-                                    onClick={() => handleOptionClick(index)}
+                                    key={
+                                        index
+                                    }
+                                    type="button"
+                                    onClick={() =>
+                                        handleOptionClick(
+                                            index,
+                                        )
+                                    }
                                     disabled={
-                                        phase !== "answering" ||
-                                        myAnswer !== null ||
+                                        phase !==
+                                            "answering" ||
+                                        myAnswer !==
+                                            null ||
                                         myPassed
                                     }
-                                    className={`w-full relative flex flex-col p-3 rounded-2xl border text-sm font-bold transition-all shadow-sm ${buttonStyle}`}
+                                    className={`
+                                        w-full
+                                        rounded-xl
+                                        border
+                                        p-3
+                                        text-left
+                                        transition-colors
+                                        active:scale-[0.99]
+                                        disabled:cursor-default
+                                        ${buttonStyle}
+                                    `}
                                 >
-                                    <div className="flex items-center justify-between w-full gap-3">
-                                        <span className="text-left">{option}</span>
-                                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-border/60 text-xs font-black bg-background/50">
-                                            {String.fromCharCode(65 + index)}
+                                    <div className="flex w-full items-center gap-3">
+                                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-current/20 text-xs font-black">
+                                            {String.fromCharCode(
+                                                65 +
+                                                    index,
+                                            )}
+                                        </span>
+
+                                        <span className="min-w-0 flex-1 text-sm font-bold leading-snug">
+                                            {
+                                                option
+                                            }
                                         </span>
                                     </div>
 
-                                    {phase === "revealing" && (didISelect || didOppSelect) && (
-                                        <div className="flex flex-wrap items-center gap-2 mt-2 text-[9px] uppercase tracking-wider font-black">
-                                            {didISelect && (
-                                                <span className={`px-2 py-1 rounded-md border ${
-                                                    myRole === "blue" ? "bg-blue-500/20 border-blue-500/50 text-blue-400" : "bg-red-500/20 border-red-500/50 text-red-400"
-                                                }`}>
-                                                    Ti ({(myAnswer!.time / 1000).toFixed(2)}s)
-                                                </span>
-                                            )}
-                                            {didOppSelect && (
-                                                <span className={`px-2 py-1 rounded-md border ${
-                                                    myRole === "blue" ? "bg-red-500/20 border-red-500/50 text-red-400" : "bg-blue-500/20 border-blue-500/50 text-blue-400"
-                                                }`}>
-                                                    Protivnik ({(oppAnswer!.time / 1000).toFixed(2)}s)
-                                                </span>
-                                            )}
-                                        </div>
-                                    )}
+                                    {phase ===
+                                        "revealing" &&
+                                        (didISelect ||
+                                            didOppSelect) && (
+                                            <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-10">
+                                                {didISelect && (
+                                                    <span
+                                                        className={`
+                                                            rounded-md
+                                                            border
+                                                            px-2
+                                                            py-1
+                                                            text-[10px]
+                                                            font-black
+                                                            ${
+                                                                myRole ===
+                                                                "blue"
+                                                                    ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
+                                                                    : "border-red-500/30 bg-red-500/10 text-red-400"
+                                                            }
+                                                        `}
+                                                    >
+                                                        Ti{" "}
+                                                        {(
+                                                            myAnswer!
+                                                                .time /
+                                                            1000
+                                                        ).toFixed(
+                                                            2,
+                                                        )}
+                                                        s
+                                                    </span>
+                                                )}
+
+                                                {didOppSelect && (
+                                                    <span
+                                                        className={`
+                                                            rounded-md
+                                                            border
+                                                            px-2
+                                                            py-1
+                                                            text-[10px]
+                                                            font-black
+                                                            ${
+                                                                myRole ===
+                                                                "blue"
+                                                                    ? "border-red-500/30 bg-red-500/10 text-red-400"
+                                                                    : "border-blue-500/30 bg-blue-500/10 text-blue-400"
+                                                            }
+                                                        `}
+                                                    >
+                                                        Protivnik{" "}
+                                                        {(
+                                                            oppAnswer!
+                                                                .time /
+                                                            1000
+                                                        ).toFixed(
+                                                            2,
+                                                        )}
+                                                        s
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
                                 </button>
                             );
-                        })}
-                    </div>
-
-                    {phase === "answering" && (
-                        <div className="flex justify-center w-full max-w-[320px]">
-                            <button
-                                onClick={handlePass}
-                                disabled={myAnswer !== null || myPassed}
-                                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full border border-primary/40 bg-primary/10 text-primary font-black text-sm transition-all hover:bg-primary/15 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                                <span>
-                                    {myPassed
-                                        ? "Čekamo..."
-                                        : "Dalje"}
-                                </span>
-                                <ArrowRight className="h-4 w-4" />
-                            </button>
-                        </div>
+                        },
                     )}
-                </>
-            ) : (
-                /* INTERMISSION */
-                <div className="flex flex-col items-center justify-center py-6 px-5 text-center bg-surface border border-border rounded-3xl w-full max-w-[340px] shadow-2xl gap-4">
-                    <HelpCircle className="h-10 w-10 text-primary animate-pulse mb-1" />
-                    <h2 className="text-lg font-black text-text">
-                        Završena runda Ko zna zna!
-                    </h2>
-                    <div className="text-xs font-bold text-text-secondary uppercase tracking-wider">
-                        Runda {round} / 2
-                    </div>
+                </div>
 
-                    <div className="flex flex-col gap-2.5 w-full mt-2">
-                        <div className="flex justify-between items-center p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20">
-                            <span className="text-xs font-bold text-blue-400 uppercase">Plavi Igrač</span>
-                            <span className="text-lg font-black text-blue-400">
-                                {blueScore > 0 ? "+" : ""}{blueScore}
-                            </span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 rounded-2xl bg-red-500/10 border border-red-500/20">
-                            <span className="text-xs font-bold text-red-400 uppercase">Crveni Igrač</span>
-                            <span className="text-lg font-black text-red-400">
-                                {redScore > 0 ? "+" : ""}{redScore}
-                            </span>
-                        </div>
-                    </div>
+                {/* =========================================
+                    PASS
+                    ========================================= */}
 
-                    <div className="flex items-center gap-2 text-xs font-bold text-text-secondary bg-surface-light px-4 py-2 rounded-xl mt-3">
-                        <Clock className="h-4 w-4 animate-spin text-primary" />
+                {phase === "answering" && (
+                    <button
+                        type="button"
+                        onClick={handlePass}
+                        disabled={
+                            myAnswer !== null ||
+                            myPassed
+                        }
+                        className="
+                            mt-1
+                            inline-flex
+                            h-10
+                            items-center
+                            justify-center
+                            gap-2
+                            rounded-xl
+                            border
+                            border-border
+                            bg-surface
+                            px-4
+                            text-sm
+                            font-black
+                            text-text-secondary
+                            transition-colors
+                            hover:bg-surface-light
+                            hover:text-text
+                            active:scale-[0.98]
+                            disabled:cursor-not-allowed
+                            disabled:opacity-40
+                        "
+                    >
                         <span>
-                            {round === 1 ? "Sledeća runda za: " : "Sledeća igra za: "}
-                            <strong className="text-primary font-black text-sm">
-                                {summaryTimeLeft}s
-                            </strong>
+                            {myPassed
+                                ? "Čekamo..."
+                                : "Dalje"}
                         </span>
+
+                        <ArrowRight className="h-4 w-4" />
+                    </button>
+                )}
+
+            </div>
+        ) : (
+            /* =========================================
+               INTERMISSION
+               ========================================= */
+
+            <div className="card-base card-padding flex w-full flex-col items-center text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <HelpCircle className="h-5 w-5" />
+                </div>
+
+                <p className="eyebrow mt-4">
+                    Runda {round} / 2
+                </p>
+
+                <h2 className="section-title mt-1">
+                    Ko zna zna završeno
+                </h2>
+
+                <div className="mt-5 grid w-full grid-cols-2 gap-2">
+                    <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3">
+                        <p className="secondary-text text-blue-400">
+                            Plavi
+                        </p>
+
+                        <p className="mt-1 text-xl font-black tabular-nums text-blue-400">
+                            {blueScore >
+                            0
+                                ? "+"
+                                : ""}
+                            {blueScore}
+                        </p>
+                    </div>
+
+                    <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3">
+                        <p className="secondary-text text-red-400">
+                            Crveni
+                        </p>
+
+                        <p className="mt-1 text-xl font-black tabular-nums text-red-400">
+                            {redScore > 0
+                                ? "+"
+                                : ""}
+                            {redScore}
+                        </p>
                     </div>
                 </div>
-            )}
-        </div>
-    );
+
+                <div className="mt-5 flex items-center gap-2 rounded-xl bg-background px-3 py-2">
+                    <Clock className="h-4 w-4 text-primary" />
+
+                    <span className="secondary-text">
+                        {round === 1
+                            ? "Sledeća runda za"
+                            : "Sledeća igra za"}
+                    </span>
+
+                    <span className="text-sm font-black tabular-nums text-primary">
+                        {
+                            summaryTimeLeft
+                        }
+                        s
+                    </span>
+                </div>
+            </div>
+        )}
+    </div>
+);
+
 }

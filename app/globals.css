@@ -1,130 +1,521 @@
+
 @import "tailwindcss";
+
+/* =========================================
+   DESIGN TOKENS
+   ========================================= */
 
 :root {
   --background: #0d0d0d;
+
   --surface: #171717;
   --surface-light: #212121;
+
   --border: #262626;
+
   --text: #ededed;
   --text-secondary: #a1a1aa;
   --text-muted: #71717a;
-  --primary: #f59e0b; /* Možeš zameniti sa svojom omiljenom bojom (npr. zelena #22c55e) */
+
+  --primary: #f59e0b;
   --primary-hover: #d97706;
-  --primary-light : #d977068c;
-  --primary-back : #d9770641;
+
+  --primary-light: #d977068c;
+  --primary-back: #d9770641;
+
   --font-sans: sans-serif;
 
+  color-scheme: dark;
 }
 
 @theme inline {
   --color-background: var(--background);
+
   --color-surface: var(--surface);
   --color-surface-light: var(--surface-light);
+
   --color-border: var(--border);
+
   --color-text: var(--text);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);
+
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
-  --font-sans: var(--font-sans);
+
   --color-primary-light: var(--primary-light);
   --color-primary-back: var(--primary-back);
 
+  --font-sans: var(--font-sans);
+}
 
+
+/* =========================================
+   BASE
+   ========================================= */
+
+html {
+  background: var(--background);
 }
 
 body {
+  min-height: 100dvh;
+
+  margin: 0;
+
   background: var(--background);
   color: var(--text);
+
   font-family: var(--font-sans);
+
   overflow-x: hidden;
 }
 
-/* Korisne prečice / klase koje se koriste kroz komponente */
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+
+/* =========================================
+   LAYOUT
+   ========================================= */
+
 @layer utilities {
+
+  /*
+   * Glavni okvir aplikacije.
+   */
   .phone-frame {
     width: 100%;
     min-height: 100dvh;
-    background-color: var(--background);
+
+    background: var(--background);
   }
 
   @media (min-width: 640px) {
     .phone-frame {
-      max-width: 440px; /* Širina "telefona" na većim ekranima */
-      margin-left: auto;
-      margin-right: auto;
+      max-width: 440px;
+
+      margin-inline: auto;
+
       border-left: 1px solid var(--border);
       border-right: 1px solid var(--border);
-      box-shadow: 0 0 50px rgba(0, 0, 0, 0.7); /* Lepa senka sa strane */
+
+      box-shadow:
+        0 0 30px
+        rgba(0, 0, 0, 0.45);
     }
   }
 
-  .card-main {
-    background-color: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 1rem; /* 16px */
+
+  /*
+   * Standardni wrapper sadržaja stranice.
+   */
+  .page-container {
+    width: 100%;
+
+    padding-inline: 1rem;
   }
 
+  @media (min-width: 640px) {
+    .page-container {
+      padding-inline: 1.25rem;
+    }
+  }
+
+
+  /*
+   * Standardni vertikalni padding stranice.
+   */
+  .page-spacing {
+    padding-top: 1.5rem;
+    padding-bottom: 2rem;
+  }
+
+
+  /*
+   * Veće sekcije stranice.
+   */
+  .section-stack {
+    display: flex;
+    flex-direction: column;
+
+    gap: 2rem;
+  }
+
+
+  /*
+   * Navigacijski header unutrašnjih stranica.
+   *
+   * Sadrži back button i naziv sekcije.
+   */
+  .in-app-header {
+    position: relative;
+
+    display: flex;
+
+    width: 100%;
+    min-height: 2.5rem;
+
+    align-items: center;
+    justify-content: center;
+
+    margin-bottom: 1.5rem;
+  }
+
+
+  /*
+   * Naslovni blok sadržaja stranice.
+   */
+  .page-title-block {
+    width: 100%;
+
+    margin-bottom: 1.5rem;
+  }
+}
+
+
+/* =========================================
+   SURFACES / CARDS
+   ========================================= */
+
+@layer utilities {
+
+  .card-base {
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+  }
+
+
+  .card-padding {
+    padding: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .card-padding {
+      padding: 1.25rem;
+    }
+  }
+}
+
+
+/* =========================================
+   BUTTONS
+   ========================================= */
+
+@layer utilities {
+
   .btn-primary {
-    background-color: var(--primary);
-    color: #000000;
-    font-weight: 700;
-    border-radius: 0.75rem; /* 12px */
-    transition: background-color 0.2s ease, transform 0.1s ease;
+    display: inline-flex;
+
+    min-height: 2.75rem;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 0.5rem;
+
+    padding-inline: 1rem;
+
+    border-radius: 0.75rem;
+
+    background: var(--primary);
+    color: #000;
+
+    font-size: 0.875rem;
+    font-weight: 900;
+
+    cursor: pointer;
+
+    transition:
+      background-color 150ms ease,
+      transform 100ms ease,
+      opacity 150ms ease;
   }
 
   .btn-primary:hover {
-    background-color: var(--primary-hover);
-  }
-  .button-radius {
-    border-radius: 0.75rem; /* 12px */
-
+    background: var(--primary-hover);
   }
 
-  .text-h1 {
+  .btn-primary:active {
+    transform: scale(0.98);
+  }
+
+  .btn-primary:disabled {
+    cursor: not-allowed;
+
+    opacity: 0.5;
+  }
+
+
+  /*
+   * Back, close, settings...
+   */
+  .icon-button {
+    display: inline-flex;
+
+    width: 2.5rem;
+    height: 2.5rem;
+
+    flex-shrink: 0;
+
+    align-items: center;
+    justify-content: center;
+
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+
+    background: var(--surface);
+    color: var(--text-secondary);
+
+    cursor: pointer;
+
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease,
+      transform 100ms ease;
+  }
+
+  .icon-button:hover {
+    background: var(--surface-light);
+
+    border-color:
+      color-mix(
+        in srgb,
+        var(--primary) 40%,
+        transparent
+      );
+
+    color: var(--primary);
+  }
+
+  .icon-button:active {
+    transform: scale(0.98);
+  }
+
+  .icon-button:disabled {
+    cursor: not-allowed;
+
+    opacity: 0.5;
+  }
+}
+
+
+/* =========================================
+   INPUTS
+   ========================================= */
+
+@layer utilities {
+
+  .input-base {
+    width: 100%;
+    height: 2.75rem;
+
+    padding-inline: 0.875rem;
+
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+
+    background: var(--background);
+    color: var(--text);
+
+    font-size: 0.875rem;
+    font-weight: 600;
+
+    outline: none;
+
+    transition:
+      border-color 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .input-base::placeholder {
+    color: var(--text-muted);
+  }
+
+  .input-base:focus {
+    border-color: var(--primary);
+
+    box-shadow:
+      0 0 0 2px
+      color-mix(
+        in srgb,
+        var(--primary) 10%,
+        transparent
+      );
+  }
+
+  .input-base:disabled {
+    cursor: not-allowed;
+
+    opacity: 0.5;
+  }
+}
+
+
+/* =========================================
+   TYPOGRAPHY
+   ========================================= */
+
+@layer utilities {
+
+  /*
+   * Glavni naslov stranice.
+   */
+  .page-title {
     font-size: 1.5rem;
     line-height: 2rem;
-    font-weight: 700;
+
+    font-weight: 900;
+    letter-spacing: -0.025em;
+
     color: var(--text);
   }
 
-  @media (min-width: 640px) {
-    .text-h1 {
-      font-size: 1.875rem;
-      line-height: 2.25rem;
-    }
+
+  /*
+   * Naslov sekcije.
+   */
+  .section-title {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+
+    font-weight: 900;
+    letter-spacing: -0.025em;
+
+    color: var(--text);
   }
 
-  .text-caption {
+
+  /*
+   * Naslov carda.
+   */
+  .card-title {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+
+    font-weight: 900;
+
+    color: var(--text);
+  }
+
+
+  /*
+   * Standardni tekst.
+   */
+  .body-text {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+
+    font-weight: 500;
+
+    color: var(--text);
+  }
+
+
+  /*
+   * Sekundarni tekst.
+   */
+  .secondary-text {
     font-size: 0.75rem;
     line-height: 1rem;
+
+    font-weight: 600;
+
     color: var(--text-secondary);
   }
 
-  @media (min-width: 640px) {
-    .text-caption {
-      font-size: 0.875rem;
-      line-height: 1.25rem;
-    }
+
+  /*
+   * Mali accent label.
+   */
+  .eyebrow {
+    font-size: 0.625rem;
+    line-height: 1rem;
+
+    font-weight: 900;
+
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+
+    color: var(--primary);
+  }
+}
+
+
+/* =========================================
+   LEGACY
+   ========================================= */
+
+@layer utilities {
+
+  .card-main {
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+    border-radius: 1rem;
   }
 
+
   .input-box {
-    background-color: var(--background);
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
+    width: 100%;
+
     padding: 0.75rem 1rem;
-    font-size: 0.875rem;
+
+    background: var(--background);
     color: var(--text);
+
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+
+    font-size: 0.875rem;
+
     outline: none;
-    transition: border-color 0.2s ease;
+
+    transition:
+      border-color 150ms ease;
   }
 
   .input-box:focus {
     border-color: var(--primary);
   }
+
+
+  .text-h1 {
+    font-size: 1.5rem;
+    line-height: 2rem;
+
+    font-weight: 900;
+
+    color: var(--text);
+  }
+
+
+  .text-caption {
+    font-size: 0.75rem;
+    line-height: 1rem;
+
+    font-weight: 600;
+
+    color: var(--text-secondary);
+  }
 }
 
-/* Custom Scrollbar za uredan izgled listi */
+
+/* =========================================
+   SCROLLBAR
+   ========================================= */
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }
@@ -135,25 +526,41 @@ body {
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 3px;
+
+  border-radius: 999px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
 
+
+/* =========================================
+   ANIMATIONS
+   ========================================= */
+
 @keyframes modalIn {
   from {
     opacity: 0;
-    transform: translateY(-10px) scale(0.95);
+
+    transform:
+      translateY(-8px)
+      scale(0.98);
   }
+
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+
+    transform:
+      translateY(0)
+      scale(1);
   }
 }
 
 .animate-modal-in {
-  animation: modalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  transform-origin: top right;
+  animation:
+    modalIn
+    180ms
+    cubic-bezier(0.16, 1, 0.3, 1)
+    forwards;
 }

@@ -60,7 +60,7 @@ export function Spojnice({
     const hasReceivedSyncRef = useRef(false);
 
     const leftItems = data?.pairs || [];
-    const [rightItems, setRightItems] = useState<PairItem[]>([]);
+    const [rightItems, setRightItems] = useState<PairItem[]>(() => data?.rightItems ?? []);
     const [currentIndex, setCurrentIndex] = useState(0);
     
     const roundStarter = round === 1 ? "blue" : "red";
@@ -247,7 +247,12 @@ export function Spojnice({
             if (incomingBroadcast.selectedRight !== undefined) setSelectedRight(incomingBroadcast.selectedRight);
             if (incomingBroadcast.isError !== undefined) setIsError(incomingBroadcast.isError);
             if (incomingBroadcast.phase) setPhase(incomingBroadcast.phase);
-            if (incomingBroadcast.rightItems) setRightItems(incomingBroadcast.rightItems);
+            if (
+                Array.isArray(incomingBroadcast.rightItems) &&
+                incomingBroadcast.rightItems.length > 0
+            ) {
+                setRightItems(incomingBroadcast.rightItems);
+            }
 
             if (
                 incomingBroadcast.blueScore !== undefined ||
@@ -720,103 +725,253 @@ export function Spojnice({
         }
     }
 
-    const displayedRightItems = phase === "intermission" 
+    const displayedRightItems = phase === "intermission"
         ? leftItems.map(left => data.pairs.find(p => p.id === left.id) || left)
-        : rightItems;
+        : rightItems.length > 0
+          ? rightItems
+          : data?.rightItems ?? [];
 
     return (
-        <div className="flex flex-col items-center justify-center w-full max-w-[340px] gap-4 animate-in fade-in zoom-in-95">
+        <div className="flex w-full max-w-sm flex-col items-center justify-center gap-4">
             {phase === "playing" || phase === "intermission" || phase === "countdown" ? (
                 <>
-                    <div className="flex flex-col items-center w-full max-w-[340px] text-center mb-1">
-                        <span className="text-xs font-bold text-primary uppercase tracking-widest mb-1 flex items-center gap-1">
-                            <Link2 className="h-3.5 w-3.5" /> Spojnice (Runda {round}) {phase === "intermission" && "• Pregled rešenja"}
-                        </span>
-                        <h2 className="text-sm font-bold text-text mb-2">{data.tema}</h2>
-                        
-                        <div className={`text-xs font-black uppercase px-3 py-1 rounded-full border shadow-sm transition-colors
-                            ${isError ? 'bg-red-500/10 border-red-500/30 text-red-500' :
-                             phase === 'intermission' ? 'bg-primary/20 border-primary/40 text-primary animate-pulse' :
-                             phase === 'countdown' ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-500 animate-pulse' :
-                             (activePlayer === 'blue' ? 'bg-blue-500/10 border-blue-500/30 text-blue-500' : 'bg-red-500/10 border-red-500/30 text-red-500')}`}
-                        >
-                            {isError ? "Greška! Promena igrača..." :
-                             phase === 'intermission' ? `Pregled rešenja (${intermissionTimeLeft}s)` :
-                             phase === 'countdown' ? `Priprema za rundu ${round} (${countdownTimer}s)` :
-                             `Na potezu: ${activePlayer === 'blue' ? 'Plavi igrač' : 'Crveni igrač'}`}
+                    {/* HEADER */}
+                    <div className="flex w-full flex-col items-center text-center">
+                        <p className="eyebrow flex items-center gap-1.5">
+                            <Link2 className="h-3.5 w-3.5" />
+                            Spojnice · Runda {round}
+                        </p>
+
+                        <h2 className="section-title mt-1">
+                            {data.tema}
+                        </h2>
+
+                        <div className="mt-3">
+                            <span
+                                className={`
+                                    inline-flex
+                                    items-center
+                                    justify-center
+                                    rounded-xl
+                                    border
+                                    px-3
+                                    py-1.5
+                                    text-xs
+                                    font-black
+                                    ${
+                                        isError
+                                            ? "border-red-500/30 bg-red-500/10 text-red-400"
+                                            : phase === "intermission"
+                                              ? "border-primary/30 bg-primary/10 text-primary"
+                                              : phase === "countdown"
+                                                ? "border-primary/30 bg-primary/10 text-primary"
+                                                : activePlayer === "blue"
+                                                  ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
+                                                  : "border-red-500/30 bg-red-500/10 text-red-400"
+                                    }
+                                `}
+                            >
+                                {isError
+                                    ? `Netačno · promjena igrača za ${transitionTimer}s`
+                                    : phase === "intermission"
+                                      ? `Pregled rješenja · ${intermissionTimeLeft}s`
+                                      : phase === "countdown"
+                                        ? `Početak za ${countdownTimer}s`
+                                        : `Na potezu: ${activePlayer === "blue" ? "Plavi" : "Crveni"}`}
+                            </span>
                         </div>
                     </div>
 
-                    <div className={`grid grid-cols-2 gap-3 w-full max-w-[340px] transition-all duration-300 ${!canPlay && phase === "playing" ? 'opacity-70' : ''}`}>
-                        
-                        {/* LEVA KOLONA */}
-                        <div className="flex flex-col gap-2">
-                            <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider text-center">Pojmovi</span>
+                    {/* BOARD */}
+                    <div
+                        className={`
+                            grid
+                            w-full
+                            grid-cols-2
+                            gap-2
+                            transition-all
+                            ${
+                                phase === "countdown"
+                                    ? "pointer-events-none opacity-45 grayscale-[0.55] saturate-50"
+                                    : phase === "intermission"
+                                      ? "pointer-events-none opacity-65 grayscale-[0.35] saturate-75"
+                                      : !canPlay
+                                        ? "opacity-75"
+                                        : ""
+                            }
+                        `}
+                    >
+                        {/* LEFT COLUMN */}
+                        <div className="flex min-w-0 flex-col gap-2">
+                            <p className="secondary-text text-center">
+                                Pojmovi
+                            </p>
+
                             {leftItems.map((item, idx) => {
-                                const matched = matchedPairs.find(m => m.id === item.id);
-                                const isMissed = missedLeftIds.includes(item.id);
-                                const isActive = idx === currentIndex && phase === "playing";
+                                const matched = matchedPairs.find(
+                                    m => m.id === item.id
+                                );
 
-                                let btnStyle = "bg-surface/30 border-border/40 text-text-muted opacity-40 cursor-not-allowed";
+                                const isMissed =
+                                    missedLeftIds.includes(item.id);
 
-                                if (phase === "intermission") {
-                                    btnStyle = "bg-primary/10 border-primary/30 text-primary font-bold cursor-default opacity-100";
-                                } else if (matched) {
-                                    btnStyle = matched.player === "blue" 
-                                        ? "bg-blue-500/20 border-blue-500/50 text-blue-400 opacity-80 cursor-not-allowed" 
-                                        : "bg-red-500/20 border-red-500/50 text-red-400 opacity-80 cursor-not-allowed";
+                                const isActive =
+                                    idx === currentIndex &&
+                                    phase === "playing";
+
+                                let btnStyle =
+                                    "border-border bg-surface text-text-muted opacity-40";
+
+                                if (matched) {
+                                    btnStyle =
+                                        matched.player === "blue"
+                                            ? phase === "intermission"
+                                                ? "border-blue-500/25 bg-blue-500/5 text-blue-400/80"
+                                                : "border-blue-500/30 bg-blue-500/10 text-blue-400"
+                                            : phase === "intermission"
+                                              ? "border-red-500/25 bg-red-500/5 text-red-400/80"
+                                              : "border-red-500/30 bg-red-500/10 text-red-400";
                                 } else if (isMissed) {
-                                    btnStyle = "bg-surface/10 border-border/20 text-text-muted opacity-30 line-through cursor-not-allowed";
+                                    btnStyle =
+                                        "border-border bg-surface text-text-muted opacity-30 line-through";
                                 } else if (isActive) {
-                                    btnStyle = "bg-surface border-primary text-text shadow-[0_0_15px_rgba(245,158,11,0.2)] ring-2 ring-primary/40";
+                                    btnStyle =
+                                        "border-primary bg-primary/10 text-primary";
                                 }
 
                                 return (
                                     <div
                                         key={`left-${item.id}`}
-                                        className={`h-11 px-3 flex items-center justify-center text-center rounded-xl border text-xs font-bold transition-all shadow-sm ${btnStyle}`}
+                                        className={`
+                                            flex
+                                            h-11
+                                            items-center
+                                            justify-center
+                                            rounded-xl
+                                            border
+                                            px-3
+                                            text-center
+                                            font-sans
+                                            text-xs
+                                            font-bold
+                                            leading-tight
+                                            transition-colors
+                                            ${btnStyle}
+                                        `}
                                     >
-                                        <span className="truncate">{item.left}</span>
+                                        <span className="truncate">
+                                            {item.left}
+                                        </span>
                                     </div>
                                 );
                             })}
                         </div>
 
-                        {/* DESNA KOLONA */}
-                        <div className="flex flex-col gap-2">
-                            <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider text-center">Rešenja</span>
-                            {displayedRightItems.map((item) => {
-                                const isMatched = matchedPairs.some(m => m.id === item.id);
-                                const isSelected = selectedRight?.id === item.id;
+                        {/* RIGHT COLUMN */}
+                        <div className="flex min-w-0 flex-col gap-2">
+                            <p className="secondary-text text-center">
+                                Rješenja
+                            </p>
 
-                                let btnStyle = "bg-surface border-border text-text hover:bg-surface-light";
-                                
-                                if (phase === "intermission") {
-                                    btnStyle = "bg-primary/10 border-primary/30 text-primary font-bold cursor-default opacity-100 shadow-sm";
-                                } else if (isMatched) {
-                                    const matchInfo = matchedPairs.find(m => m.id === item.id);
-                                    btnStyle = matchInfo?.player === "blue"
-                                        ? "bg-blue-500/20 border-blue-500/50 text-blue-400 opacity-80 cursor-not-allowed"
-                                        : "bg-red-500/20 border-red-500/50 text-red-400 opacity-80 cursor-not-allowed";
+                            {displayedRightItems.map((item) => {
+                                const isMatched =
+                                    matchedPairs.some(
+                                        m => m.id === item.id
+                                    );
+
+                                const isSelected =
+                                    selectedRight?.id === item.id;
+
+                                let btnStyle =
+                                    "border-border bg-surface text-text";
+
+                                if (isMatched) {
+                                    const matchInfo =
+                                        matchedPairs.find(
+                                            m => m.id === item.id
+                                        );
+
+                                    btnStyle =
+                                        matchInfo?.player === "blue"
+                                            ? phase === "intermission"
+                                                ? "border-blue-500/25 bg-blue-500/5 text-blue-400/80"
+                                                : "border-blue-500/30 bg-blue-500/10 text-blue-400"
+                                            : phase === "intermission"
+                                              ? "border-red-500/25 bg-red-500/5 text-red-400/80"
+                                              : "border-red-500/30 bg-red-500/10 text-red-400";
                                 } else if (isSelected && isError) {
-                                    btnStyle = "bg-yellow-500/20 border-yellow-500/60 text-yellow-400";
+                                    btnStyle =
+                                        "border-primary/50 bg-primary/10 text-primary";
                                 } else if (isSelected) {
-                                    btnStyle = "bg-primary/20 border-primary text-primary";
+                                    btnStyle =
+                                        "border-primary bg-primary/10 text-primary";
                                 }
 
                                 return (
-                                    <button
+                                    <div
                                         key={`right-${item.id}`}
-                                        onClick={() => handleRightClick(item)}
-                                        disabled={!canPlay || isMatched || isError}
-                                        className={`h-11 px-3 flex items-center justify-center text-center rounded-xl border text-xs font-bold transition-all shadow-sm ${canPlay && !isMatched && !isError ? 'cursor-pointer hover:bg-surface-light' : 'cursor-not-allowed opacity-75'} ${btnStyle}`}
+                                        className="relative"
                                     >
-                                        <span className="truncate">{item.right}</span>
-                                    </button>
+                                        <div
+                                            className={`
+                                                flex
+                                                h-11
+                                                w-full
+                                                items-center
+                                                justify-center
+                                                rounded-xl
+                                                border
+                                                px-3
+                                                text-center
+                                                font-sans
+                                                text-xs
+                                                font-bold
+                                                leading-tight
+                                                transition-colors
+                                                ${
+                                                    canPlay &&
+                                                    !isMatched &&
+                                                    !isError
+                                                        ? "hover:bg-surface-light"
+                                                        : ""
+                                                }
+                                                ${btnStyle}
+                                            `}
+                                        >
+                                            <span className="truncate">
+                                                {item.right}
+                                            </span>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            aria-label={`Odaberi ${item.right}`}
+                                            onClick={() =>
+                                                handleRightClick(item)
+                                            }
+                                            disabled={
+                                                !canPlay ||
+                                                isMatched ||
+                                                isError
+                                            }
+                                            className={`
+                                                absolute
+                                                inset-0
+                                                rounded-xl
+                                                bg-transparent
+                                                ${
+                                                    canPlay &&
+                                                    !isMatched &&
+                                                    !isError
+                                                        ? "cursor-pointer"
+                                                        : "cursor-default"
+                                                }
+                                            `}
+                                        />
+                                    </div>
                                 );
                             })}
                         </div>
-
                     </div>
                 </>
             ) : null}

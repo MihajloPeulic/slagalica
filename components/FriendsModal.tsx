@@ -1,405 +1,778 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { UserPlus, Loader2, Swords, X, ChevronRight, Trophy, UserRound } from "lucide-react";
-import { AddAFriend } from "@/actions/friends";
-import { getFriends } from "@/data/friends"; 
+import {
+  ChevronRight,
+  Loader2,
+  Swords,
+  Trophy,
+  UserPlus,
+  UserRound,
+  X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
+
+import { AddAFriend } from "@/actions/friends";
 import { createGameRoom } from "@/actions/game";
+import { getFriends } from "@/data/friends";
+
 import { useOnlinePresence } from "./OnlineUserContext";
 
+import { Button } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/IconButton";
+import { Input } from "@/components/ui/Input";
+import { FormMessage } from "@/components/ui/FormMessage";
+
+type Friend = {
+  id: string;
+  username: string;
+  experience: number;
+};
+
+type Tab = "friends" | "add";
+
 export default function FriendsModal() {
-    const router = useRouter();
+  const router = useRouter();
 
-    const {
-        isUserOnline,
-        presenceReady,
-    } = useOnlinePresence();
+  const {
+    isUserOnline,
+    presenceReady,
+  } = useOnlinePresence();
 
-    // 1. Tabovi i pretraga
-    const [activeTab, setActiveTab] = useState<"friends" | "add">("friends");
-    const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] =
+    useState<Tab>("friends");
 
-    // 2. Stanja za dodavanje prijatelja
-    const [errorMessage, setErrorMessage] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [successMessage, setSuccessMessage] = useState("");
+  const [searchQuery, setSearchQuery] =
+    useState("");
 
-    // 3. Stanja za listu prijatelja
-    const [friends, setFriends] = useState<{id: string, username: string, experience: number}[]>([]);
-    const [isLoadingFriends, setIsLoadingFriends] = useState(true);
+  const [errorMessage, setErrorMessage] =
+    useState("");
 
-    // 4. Stanja za pozivanje u igru (Invite)
-    const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
-    const [isInviting, setIsInviting] = useState(false);
+  const [
+    successMessage,
+    setSuccessMessage,
+  ] = useState("");
 
-    useEffect(() => {
-        const fetchFriendsData = async () => {
-            setIsLoadingFriends(true);
-            try {
-                const data = await getFriends(); 
-                setFriends(data || []);
-            } catch (err) {
-                console.error("Greška pri učitavanju prijatelja:", err);
-            } finally {
-                setIsLoadingFriends(false);
-            }
-        };
+  const [loading, setLoading] =
+    useState(false);
 
-        fetchFriendsData();
-    }, []);
+  const [friends, setFriends] =
+    useState<Friend[]>([]);
 
-    async function handleAdd(){
-        setLoading(true);
-        setErrorMessage("");
-        setSuccessMessage(""); 
+  const [
+    isLoadingFriends,
+    setIsLoadingFriends,
+  ] = useState(true);
 
-        const res = await AddAFriend(searchQuery);
+  const [
+    selectedFriendId,
+    setSelectedFriendId,
+  ] = useState<string | null>(null);
 
-        if(res?.error){
-            setErrorMessage(res.error);
-            setLoading(false);
-            return;
-        }
+  const [isInviting, setIsInviting] =
+    useState(false);
 
-        if(res?.success){
-            setSuccessMessage(res.success);
-            setSearchQuery(""); 
-            setLoading(false);
-            return;
-        }
+  useEffect(() => {
+    async function fetchFriendsData() {
+      setIsLoadingFriends(true);
 
-        setLoading(false);
+      try {
+        const data = await getFriends();
+
+        setFriends(data || []);
+      } catch (error) {
+        console.error(
+          "Greška pri učitavanju prijatelja:",
+          error,
+        );
+      } finally {
+        setIsLoadingFriends(false);
+      }
     }
 
-    // Funkcija koja se poziva klikom na "Izazovi"
-    async function handleInvite(friendId: string) {
-        setIsInviting(true);
-        try {
-            // Ovde u akciju sada moramo poslati ID prijatelja kog izazivamo
-            const res = await createGameRoom(friendId);
-            
-            if (res?.roomId) {
-                router.push(`/igra/${res.roomId}`);
-            } else {
-                console.error("Greška pri kreiranju sobe:", res?.error);
-            }
-        } catch (error) {
-            console.error("Neočekivana greška:", error);
-        } finally {
-            setIsInviting(false);
-            setSelectedFriendId(null);
-        }
+    fetchFriendsData();
+  }, []);
+
+  async function handleAdd() {
+    const username = searchQuery.trim();
+
+    if (!username) return;
+
+    setLoading(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    const res = await AddAFriend(username);
+
+    if (res?.error) {
+      setErrorMessage(res.error);
+      setLoading(false);
+
+      return;
     }
 
-
-    function handleOpenProfile(friendId: string) {
-        router.push(`/prijatelj/${friendId}`);
+    if (res?.success) {
+      setSuccessMessage(res.success);
+      setSearchQuery("");
     }
 
-    function getInitial(username: string) {
-        return username?.trim()?.charAt(0)?.toUpperCase() || "?";
+    setLoading(false);
+  }
+
+  async function handleInvite(
+    friendId: string,
+  ) {
+    setIsInviting(true);
+
+    try {
+      const res =
+        await createGameRoom(friendId);
+
+      if (res?.roomId) {
+        router.push(
+          `/igra/${res.roomId}`,
+        );
+
+        return;
+      }
+
+      console.error(
+        "Greška pri kreiranju sobe:",
+        res?.error,
+      );
+    } catch (error) {
+      console.error(
+        "Neočekivana greška:",
+        error,
+      );
+    } finally {
+      setIsInviting(false);
+      setSelectedFriendId(null);
     }
+  }
 
-    return (
-        <div className="z-50 flex w-[calc(100vw-24px)] max-w-[390px] max-h-[calc(100dvh-24px)] flex-col overflow-hidden rounded-2xl border border-border/70 bg-surface shadow-[0_24px_80px_rgba(0,0,0,0.55)] animate-modal-in min-[380px]:w-[calc(100vw-32px)] min-[380px]:rounded-3xl sm:w-[390px]">
-            <div className="shrink-0 border-b border-border/60 bg-gradient-to-b from-surface-light/60 to-transparent px-3 pb-3 pt-3 min-[360px]:px-4 min-[360px]:pt-4">
-                <div className="flex items-center justify-between mb-3">
-                    <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">
-                            Social
-                        </p>
-                        <h2 className="text-base font-black text-text">
-                            Prijatelji
-                        </h2>
-                    </div>
-
-                    {activeTab === "friends" && (
-                        <div className="flex items-center gap-1.5 rounded-full border border-border bg-background/70 px-2.5 py-1">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                            <span className="text-[10px] font-bold text-text-secondary">
-                                {friends.filter(friend => presenceReady && isUserOnline(friend.id)).length} online
-                            </span>
-                        </div>
-                    )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-1 rounded-xl border border-border/60 bg-background/60 p-1">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setActiveTab("friends");
-                            setSelectedFriendId(null);
-                        }}
-                        className={`h-8 rounded-lg text-[11px] font-black uppercase tracking-wide transition-all ${
-                            activeTab === "friends"
-                                ? "bg-surface-light text-text shadow-sm"
-                                : "text-text-secondary hover:text-text"
-                        }`}
-                    >
-                        Prijatelji
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setActiveTab("add");
-                            setErrorMessage("");
-                            setSuccessMessage("");
-                            setSelectedFriendId(null);
-                        }}
-                        className={`h-8 rounded-lg text-[11px] font-black uppercase tracking-wide transition-all ${
-                            activeTab === "add"
-                                ? "bg-surface-light text-text shadow-sm"
-                                : "text-text-secondary hover:text-text"
-                        }`}
-                    >
-                        Dodaj
-                    </button>
-                </div>
-            </div>
-
-            <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-2.5 min-[360px]:p-3">
-                {activeTab === "friends" && (
-                    <>
-                        {isLoadingFriends ? (
-                            <div className="flex min-h-[180px] items-center justify-center">
-                                <Loader2 className="h-6 w-6 animate-spin text-primary/60" />
-                            </div>
-                        ) : friends.length > 0 ? (
-                            <div className="flex flex-col gap-2">
-                                {friends.map((friend, index) => {
-                                    const selected = selectedFriendId === friend.id;
-                                    const online = presenceReady && isUserOnline(friend.id);
-
-                                    return (
-                                        <div
-                                            key={friend.id || friend.username || index}
-                                            className={`overflow-hidden rounded-2xl border transition-all ${
-                                                selected
-                                                    ? "border-primary/35 bg-primary/[0.04] shadow-[0_10px_30px_rgba(0,0,0,0.18)]"
-                                                    : "border-border/60 bg-background/35 hover:border-border hover:bg-surface-light/40"
-                                            }`}
-                                        >
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setSelectedFriendId(
-                                                        selected ? null : friend.id
-                                                    );
-                                                }}
-                                                className="group flex w-full items-center gap-2.5 p-2.5 text-left min-[360px]:gap-3 min-[360px]:p-3"
-                                            >
-                                                <div className="relative shrink-0">
-                                                    <div
-                                                        className={`cursor-pointer flex h-10 w-10 items-center justify-center rounded-xl border text-base font-black transition-all min-[360px]:h-11 min-[360px]:w-11 ${
-                                                            selected
-                                                                ? "border-primary/40 bg-primary/15 text-primary"
-                                                                : "border-border bg-surface-light text-text group-hover:border-primary/25 group-hover:text-primary"
-                                                        }`}
-                                                    >
-                                                        {getInitial(friend.username)}
-                                                    </div>
-
-                                                    <span
-                                                        className={`absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-[3px] border-surface ${
-                                                            online
-                                                                ? "bg-emerald-500"
-                                                                : "bg-zinc-600"
-                                                        }`}
-                                                    />
-                                                </div>
-
-                                                <div className="cursor-pointer min-w-0 flex-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="truncate text-sm font-black text-text">
-                                                            {friend.username}
-                                                        </span>
-
-                                                        {online && (
-                                                            <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-emerald-500">
-                                                                Online
-                                                            </span>
-                                                        )}
-                                                    </div>
-
-                                                    <div className="mt-1 flex items-center gap-2">
-                                                        <div className="flex items-center gap-1 text-text-secondary">
-                                                            <Trophy className="h-3 w-3" />
-                                                            <span className="text-[10px] font-bold">
-                                                                {friend.experience} XP
-                                                            </span>
-                                                        </div>
-
-                                                        <span className="text-text-secondary/30">•</span>
-
-                                                        <span
-                                                            className={`text-[10px] font-semibold ${
-                                                                !presenceReady
-                                                                    ? "text-text-secondary"
-                                                                    : online
-                                                                    ? "text-emerald-500"
-                                                                    : "text-text-secondary"
-                                                            }`}
-                                                        >
-                                                            {!presenceReady
-                                                                ? "Provjera..."
-                                                                : online
-                                                                ? "Dostupan"
-                                                                : "Offline"}
-                                                        </span>
-                                                    </div>
-                                                </div>
-
-                                                <ChevronRight
-                                                    className={`h-4 w-4 shrink-0 text-text-secondary transition-transform ${
-                                                        selected
-                                                            ? "rotate-90 text-primary"
-                                                            : "group-hover:translate-x-0.5"
-                                                    }`}
-                                                />
-                                            </button>
-
-                                            {selected && (
-                                                <div className="animate-in slide-in-from-top-1 fade-in duration-200 border-t border-border/50 bg-background/35 p-2.5">
-                                                    <div className="grid grid-cols-[1fr_1fr_36px] gap-1.5 min-[360px]:grid-cols-[1fr_1fr_40px] min-[360px]:gap-2">
-                                                        <button
-                                                            type="button"
-                                                            disabled={isInviting}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleOpenProfile(friend.id);
-                                                            }}
-                                                            className="cursor-pointer flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-surface text-xs font-black text-text transition-all hover:border-primary/30 hover:bg-surface-light hover:text-primary active:scale-[0.98] disabled:opacity-60"
-                                                        >
-                                                            <UserRound className="h-4 w-4" />
-                                                            Profil
-                                                        </button>
-
-                                                        <button
-                                                            type="button"
-                                                            disabled={isInviting}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleInvite(friend.id);
-                                                            }}
-                                                            className="cursor-pointer flex h-10 items-center justify-center gap-2 rounded-xl bg-primary text-xs font-black text-black transition-all hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
-                                                            title="Izazovi u igru"
-                                                        >
-                                                            {isInviting ? (
-                                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                                            ) : (
-                                                                <Swords className="h-4 w-4" />
-                                                            )}
-                                                            {isInviting ? "Čekaj..." : "Izazovi"}
-                                                        </button>
-
-                                                        <button
-                                                            type="button"
-                                                            disabled={isInviting}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setSelectedFriendId(null);
-                                                            }}
-                                                            className="cursor-pointer flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-surface text-text-secondary transition-all hover:bg-surface-light hover:text-text active:scale-95 disabled:opacity-60 min-[360px]:h-10 min-[360px]:w-10"
-                                                            aria-label="Zatvori akcije"
-                                                        >
-                                                            <X className="h-4 w-4" />
-                                                        </button>
-                                                    </div>
-
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        ) : (
-                            <div className="flex min-h-[180px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-background/20 px-6 text-center">
-                                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-surface-light text-text-secondary">
-                                    <UserPlus className="h-5 w-5" />
-                                </div>
-
-                                <p className="text-sm font-black text-text">
-                                    Lista je prazna
-                                </p>
-
-                                <p className="mt-1 text-[10px] leading-relaxed text-text-secondary">
-                                    Dodaj prijatelje i izazovi ih direktno u partiju.
-                                </p>
-                            </div>
-                        )}
-                    </>
-                )}
-
-                {activeTab === "add" && (
-                    <div className="flex flex-col gap-4 p-1">
-                        <div className="rounded-2xl border border-border/60 bg-background/35 p-3">
-                            <p className="text-xs font-black text-text">
-                                Pronađi igrača
-                            </p>
-
-                            <p className="mt-1 text-[10px] leading-relaxed text-text-secondary">
-                                Unesi tačno korisničko ime igrača kojeg želiš dodati.
-                            </p>
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="text"
-                                    value={searchQuery}
-                                    onChange={(e) => {
-                                        setSearchQuery(e.target.value);
-
-                                        if (errorMessage || successMessage) {
-                                            setErrorMessage("");
-                                            setSuccessMessage("");
-                                        }
-                                    }}
-                                    placeholder="Korisničko ime..."
-                                    className={`h-11 min-w-0 flex-1 rounded-xl border bg-background px-3 text-sm font-bold text-text outline-none transition-colors placeholder:text-text-secondary/50 ${
-                                        errorMessage
-                                            ? "border-red-500/50 focus:border-red-500"
-                                            : successMessage
-                                            ? "border-emerald-500/50 focus:border-emerald-500"
-                                            : "border-border focus:border-primary"
-                                    }`}
-                                    disabled={loading}
-                                />
-
-                                <button
-                                    type="button"
-                                    disabled={!searchQuery.trim() || loading}
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        handleAdd();
-                                    }}
-                                    className="cursor-pointer flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-black transition-all hover:brightness-105 active:scale-95 disabled:pointer-events-none disabled:opacity-50"
-                                >
-                                    {loading ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <UserPlus className="h-4 w-4" />
-                                    )}
-                                </button>
-                            </div>
-
-                            {errorMessage && (
-                                <p className="animate-in fade-in slide-in-from-top-1 rounded-lg bg-red-500/10 px-2.5 py-2 text-[10px] font-bold text-red-500">
-                                    {errorMessage}
-                                </p>
-                            )}
-
-                            {successMessage && (
-                                <p className="animate-in fade-in slide-in-from-top-1 rounded-lg bg-emerald-500/10 px-2.5 py-2 text-[10px] font-bold text-emerald-500">
-                                    {successMessage}
-                                </p>
-                            )}
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
+  function handleOpenProfile(
+    friendId: string,
+  ) {
+    router.push(
+      `/prijatelj/${friendId}`,
     );
+  }
+
+  function handleTabChange(tab: Tab) {
+    setActiveTab(tab);
+    setSelectedFriendId(null);
+
+    if (tab === "add") {
+      setErrorMessage("");
+      setSuccessMessage("");
+    }
+  }
+
+  function getInitial(
+    username: string,
+  ) {
+    return (
+      username
+        ?.trim()
+        ?.charAt(0)
+        ?.toUpperCase() || "?"
+    );
+  }
+
+  const onlineCount = friends.filter(
+    (friend) =>
+      presenceReady &&
+      isUserOnline(friend.id),
+  ).length;
+
+  return (
+    <div className="card-base animate-modal-in flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden shadow-lg">
+      {/* Header */}
+      <header className="border-b border-border p-4">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <p className="eyebrow">
+              Social
+            </p>
+
+            <h2 className="section-title">
+              Prijatelji
+            </h2>
+          </div>
+
+          {activeTab === "friends" && (
+            <OnlineCounter
+              count={onlineCount}
+            />
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-1 rounded-xl bg-background p-1">
+          <TabButton
+            active={
+              activeTab === "friends"
+            }
+            onClick={() =>
+              handleTabChange("friends")
+            }
+          >
+            Prijatelji
+          </TabButton>
+
+          <TabButton
+            active={activeTab === "add"}
+            onClick={() =>
+              handleTabChange("add")
+            }
+          >
+            Dodaj
+          </TabButton>
+        </div>
+      </header>
+
+      {/* Content */}
+      <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+        {activeTab === "friends" ? (
+          <FriendsTab
+            friends={friends}
+            loading={isLoadingFriends}
+            selectedFriendId={
+              selectedFriendId
+            }
+            isInviting={isInviting}
+            presenceReady={
+              presenceReady
+            }
+            isUserOnline={
+              isUserOnline
+            }
+            getInitial={getInitial}
+            onSelectFriend={
+              setSelectedFriendId
+            }
+            onOpenProfile={
+              handleOpenProfile
+            }
+            onInvite={handleInvite}
+          />
+        ) : (
+          <AddFriendTab
+            searchQuery={searchQuery}
+            loading={loading}
+            errorMessage={errorMessage}
+            successMessage={
+              successMessage
+            }
+            onSearchChange={(value) => {
+              setSearchQuery(value);
+
+              if (
+                errorMessage ||
+                successMessage
+              ) {
+                setErrorMessage("");
+                setSuccessMessage("");
+              }
+            }}
+            onAdd={handleAdd}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================
+   TABS
+   ========================================= */
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`
+        h-9
+        rounded-lg
+        text-xs
+        font-black
+        transition-colors
+        ${
+          active
+            ? "bg-surface-light text-text"
+            : "text-text-secondary hover:text-text"
+        }
+      `}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* =========================================
+   ONLINE COUNTER
+   ========================================= */
+
+function OnlineCounter({
+  count,
+}: {
+  count: number;
+}) {
+  return (
+    <div className="flex items-center gap-2 rounded-full border border-border bg-background px-2.5 py-1">
+      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+
+      <span className="text-[10px] font-bold text-text-secondary">
+        {count} online
+      </span>
+    </div>
+  );
+}
+
+/* =========================================
+   FRIENDS TAB
+   ========================================= */
+
+function FriendsTab({
+  friends,
+  loading,
+  selectedFriendId,
+  isInviting,
+  presenceReady,
+  isUserOnline,
+  getInitial,
+  onSelectFriend,
+  onOpenProfile,
+  onInvite,
+}: {
+  friends: Friend[];
+  loading: boolean;
+  selectedFriendId: string | null;
+  isInviting: boolean;
+  presenceReady: boolean;
+  isUserOnline: (
+    id: string,
+  ) => boolean;
+  getInitial: (
+    username: string,
+  ) => string;
+  onSelectFriend: (
+    id: string | null,
+  ) => void;
+  onOpenProfile: (
+    id: string,
+  ) => void;
+  onInvite: (
+    id: string,
+  ) => void;
+}) {
+  if (loading) {
+    return (
+      <div className="flex min-h-48 items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (friends.length === 0) {
+    return <EmptyFriends />;
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {friends.map((friend) => {
+        const selected =
+          selectedFriendId ===
+          friend.id;
+
+        const online =
+          presenceReady &&
+          isUserOnline(friend.id);
+
+        return (
+          <FriendRow
+            key={friend.id}
+            friend={friend}
+            selected={selected}
+            online={online}
+            presenceReady={
+              presenceReady
+            }
+            isInviting={
+              isInviting
+            }
+            initial={getInitial(
+              friend.username,
+            )}
+            onToggle={() =>
+              onSelectFriend(
+                selected
+                  ? null
+                  : friend.id,
+              )
+            }
+            onClose={() =>
+              onSelectFriend(null)
+            }
+            onOpenProfile={() =>
+              onOpenProfile(friend.id)
+            }
+            onInvite={() =>
+              onInvite(friend.id)
+            }
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+/* =========================================
+   FRIEND ROW
+   ========================================= */
+
+function FriendRow({
+  friend,
+  selected,
+  online,
+  presenceReady,
+  isInviting,
+  initial,
+  onToggle,
+  onClose,
+  onOpenProfile,
+  onInvite,
+}: {
+  friend: Friend;
+  selected: boolean;
+  online: boolean;
+  presenceReady: boolean;
+  isInviting: boolean;
+  initial: string;
+  onToggle: () => void;
+  onClose: () => void;
+  onOpenProfile: () => void;
+  onInvite: () => void;
+}) {
+  return (
+    <div
+      className={`
+        overflow-hidden
+        rounded-2xl
+        border
+        transition-colors
+        ${
+          selected
+            ? "border-primary/40 bg-primary/5"
+            : "border-border bg-background hover:bg-surface-light/40"
+        }
+      `}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        className="group flex w-full items-center gap-3 p-3 text-left"
+      >
+        <FriendAvatar
+          initial={initial}
+          online={online}
+          selected={selected}
+        />
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="truncate text-sm font-black text-text">
+              {friend.username}
+            </span>
+
+            {online && (
+              <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-black text-emerald-500">
+                Online
+              </span>
+            )}
+          </div>
+
+          <div className="mt-1 flex items-center gap-2">
+            <div className="flex items-center gap-1 text-text-secondary">
+              <Trophy className="h-3 w-3" />
+
+              <span className="text-[10px] font-bold">
+                {friend.experience} XP
+              </span>
+            </div>
+
+            <span className="text-text-muted">
+              •
+            </span>
+
+            <span
+              className={`text-[10px] font-semibold ${
+                online
+                  ? "text-emerald-500"
+                  : "text-text-secondary"
+              }`}
+            >
+              {!presenceReady
+                ? "Provjera..."
+                : online
+                  ? "Dostupan"
+                  : "Offline"}
+            </span>
+          </div>
+        </div>
+
+        <ChevronRight
+          className={`
+            h-4
+            w-4
+            shrink-0
+            transition-transform
+            ${
+              selected
+                ? "rotate-90 text-primary"
+                : "text-text-secondary"
+            }
+          `}
+        />
+      </button>
+
+      {selected && (
+        <FriendActions
+          loading={isInviting}
+          onOpenProfile={
+            onOpenProfile
+          }
+          onInvite={onInvite}
+          onClose={onClose}
+        />
+      )}
+    </div>
+  );
+}
+
+/* =========================================
+   FRIEND AVATAR
+   ========================================= */
+
+function FriendAvatar({
+  initial,
+  online,
+  selected,
+}: {
+  initial: string;
+  online: boolean;
+  selected: boolean;
+}) {
+  return (
+    <div className="relative shrink-0">
+      <div
+        className={`
+          flex
+          h-10
+          w-10
+          items-center
+          justify-center
+          rounded-xl
+          border
+          text-sm
+          font-black
+          ${
+            selected
+              ? "border-primary/40 bg-primary/10 text-primary"
+              : "border-border bg-surface-light text-text"
+          }
+        `}
+      >
+        {initial}
+      </div>
+
+      <span
+        className={`
+          absolute
+          -bottom-1
+          -right-1
+          h-3
+          w-3
+          rounded-full
+          border-2
+          border-surface
+          ${
+            online
+              ? "bg-emerald-500"
+              : "bg-text-muted"
+          }
+        `}
+      />
+    </div>
+  );
+}
+
+/* =========================================
+   FRIEND ACTIONS
+   ========================================= */
+
+function FriendActions({
+  loading,
+  onOpenProfile,
+  onInvite,
+  onClose,
+}: {
+  loading: boolean;
+  onOpenProfile: () => void;
+  onInvite: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="border-t border-border bg-background p-2">
+      <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={loading}
+          onClick={onOpenProfile}
+        >
+          <UserRound className="h-4 w-4" />
+          Profil
+        </Button>
+
+        <Button
+          type="button"
+          size="sm"
+          disabled={loading}
+          onClick={onInvite}
+        >
+          {loading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Swords className="h-4 w-4" />
+          )}
+
+          {loading
+            ? "Čekaj..."
+            : "Izazovi"}
+        </Button>
+
+        <IconButton
+          type="button"
+          label="Zatvori akcije"
+          disabled={loading}
+          onClick={onClose}
+          className="h-9 w-9"
+        >
+          <X className="h-4 w-4" />
+        </IconButton>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================
+   EMPTY STATE
+   ========================================= */
+
+function EmptyFriends() {
+  return (
+    <div className="flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-border px-6 text-center">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-surface-light text-text-secondary">
+        <UserPlus className="h-4 w-4" />
+      </div>
+
+      <p className="card-title">
+        Lista je prazna
+      </p>
+
+      <p className="secondary-text mt-1 max-w-52 leading-relaxed">
+        Dodaj prijatelje i izazovi ih
+        direktno u partiju.
+      </p>
+    </div>
+  );
+}
+
+/* =========================================
+   ADD FRIEND TAB
+   ========================================= */
+
+function AddFriendTab({
+  searchQuery,
+  loading,
+  errorMessage,
+  successMessage,
+  onSearchChange,
+  onAdd,
+}: {
+  searchQuery: string;
+  loading: boolean;
+  errorMessage: string;
+  successMessage: string;
+  onSearchChange: (
+    value: string,
+  ) => void;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <h3 className="card-title">
+          Pronađi igrača
+        </h3>
+
+        <p className="secondary-text mt-1 leading-relaxed">
+          Unesi tačno korisničko ime
+          igrača kojeg želiš dodati.
+        </p>
+      </div>
+
+      <FormMessage
+        error={
+          errorMessage || undefined
+        }
+        success={
+          successMessage || undefined
+        }
+      />
+
+      <div className="flex gap-2">
+        <Input
+          type="text"
+          value={searchQuery}
+          onChange={(e) =>
+            onSearchChange(
+              e.target.value,
+            )
+          }
+          placeholder="Korisničko ime..."
+          disabled={loading}
+        />
+
+        <Button
+          type="button"
+          size="md"
+          disabled={
+            !searchQuery.trim() ||
+            loading
+          }
+          onClick={onAdd}
+          aria-label="Dodaj prijatelja"
+          className="w-11 shrink-0 px-0"
+        >
+          {loading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <UserPlus className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
+    </div>
+  );
 }

@@ -1,38 +1,89 @@
-"use client"
+"use client";
 
-import { redirect } from "next/navigation";
-import { PlayCircle } from "lucide-react";
-import { createGameRoom, joinGameRoomOnStart } from "@/actions/game";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Loader2,
+  Play,
+} from "lucide-react";
 
-export default function StartGame(){
+import {
+  createGameRoom,
+  joinGameRoomOnStart,
+} from "@/actions/game";
 
-    async function handleStartGame(){
-    
-          const {roomId} = await joinGameRoomOnStart()
-          console.log(roomId)
-    
-          if(roomId){
-            redirect(`/igra/${roomId}`)
-          }
-    
-          const res = await createGameRoom()
-    
-          if(res?.error){
-            alert(res.error)
-          }
-          
-          console.log(res.roomId)
-          redirect(`/igra/${res.roomId}`)
+import { Button } from "@/components/ui/Button";
+
+export default function StartGame() {
+  const router = useRouter();
+
+  const [loading, setLoading] =
+    useState(false);
+
+  async function handleStartGame() {
+    if (loading) return;
+
+    setLoading(true);
+
+    try {
+      const { roomId } =
+        await joinGameRoomOnStart();
+
+      if (roomId) {
+        router.push(
+          `/igra/${roomId}`,
+        );
+
+        return;
       }
 
+      const res =
+        await createGameRoom();
 
-    return(
-        <button
-          onClick={handleStartGame}
-          className="cursor-pointer group relative w-full max-w-[280px] flex items-center justify-center gap-3 rounded-[2rem] bg-primary py-5 text-xl font-bold text-black transition-all hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_50px_rgba(245,158,11,0.25)]"
-        >
-          <PlayCircle className="h-7 w-7 stroke-[2]" />
-          Start a game
-        </button>
-    )
+      if (res?.error) {
+        // Kasnije ovo možemo zamijeniti
+        // standardnim toast/error sistemom.
+        alert(res.error);
+
+        return;
+      }
+
+      if (!res?.roomId) {
+        alert(
+          "Nije moguće pokrenuti igru.",
+        );
+
+        return;
+      }
+
+      router.push(
+        `/igra/${res.roomId}`,
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Button
+      type="button"
+      size="lg"
+      fullWidth
+      disabled={loading}
+      onClick={handleStartGame}
+      className="max-w-[280px] cursor-pointer"
+    >
+      {loading ? (
+        <>
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Traženje igre...
+        </>
+      ) : (
+        <>
+          <Play className="h-5 w-5 fill-current" />
+          Započni igru
+        </>
+      )}
+    </Button>
+  );
 }

@@ -3,6 +3,22 @@
 import { createServerSupabaseClient } from "@/utils/supabase/server";
 
 
+function shuffleArray<T>(items: T[]) {
+    const shuffled = [...items];
+
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+
+        [shuffled[i], shuffled[j]] = [
+            shuffled[j],
+            shuffled[i],
+        ];
+    }
+
+    return shuffled;
+}
+
+
 async function generateLetters() {
     const supabase = await createServerSupabaseClient();
 
@@ -194,30 +210,7 @@ function generateSkockoRound() {
     };
 }
 
-// --- NOVA funkcija za generisanje Spojnica ---
-// (Ako imaš bazu tema, možeš je zameniti ovim ili pozivati iz svog fajla)
-const SPOJNICE_TEME_FALLBACK = [
-    {
-        tema: "Glavni gradovi (Fallback)",
-        pairs: [
-            { id: 1, left: "Pariz", right: "Francuska" },
-            { id: 2, left: "Tokio", right: "Japan" },
-            { id: 3, left: "Kanbera", right: "Australija" },
-            { id: 4, left: "Otava", right: "Kanada" },
-        ]
-    }
-];
-
-function generateSpojniceFallback() {
-    const randomTheme = SPOJNICE_TEME_FALLBACK[0];
-    return {
-        tema: randomTheme.tema,
-        verzija: 1,
-        pairs: randomTheme.pairs,
-        // Odmah ovde mešamo za fallback!
-        rightItems: [...randomTheme.pairs].sort(() => Math.random() - 0.5) 
-    };
-}
+// --- Generisanje Spojnica se radi isključivo iz baze ---
 
 // NOVA ASYNC FUNKCIJA KOJA GENERIŠE CEO GAME STATE
 // --- NOVA funkcija za generisanje Ko Zna Zna ---
@@ -250,16 +243,46 @@ export async function generateFullGameState() {
     const supabase = await createServerSupabaseClient()
     
     // 1. Spojnice
-    const { data: dbDataSpojnice, error: errSpojnice } = await supabase.rpc("get_random_spojnice");
-    let spojniceData;
-    if (!errSpojnice && dbDataSpojnice && dbDataSpojnice.length >= 2) {
-        spojniceData = {
-            runda_1: { tema: dbDataSpojnice[0].tema, verzija: dbDataSpojnice[0].verzija, pairs: dbDataSpojnice[0].parovi, rightItems: [...dbDataSpojnice[0].parovi].sort(() => Math.random() - 0.5) },
-            runda_2: { tema: dbDataSpojnice[1].tema, verzija: dbDataSpojnice[1].verzija, pairs: dbDataSpojnice[1].parovi, rightItems: [...dbDataSpojnice[1].parovi].sort(() => Math.random() - 0.5) }
-        };
-    } else {
-        spojniceData = { runda_1: generateSpojniceFallback(), runda_2: generateSpojniceFallback() };
+    const {
+        data: dbDataSpojnice,
+        error: errSpojnice,
+    } = await supabase.rpc("get_random_spojnice");
+
+    if (
+        errSpojnice ||
+        !dbDataSpojnice ||
+        dbDataSpojnice.length < 2
+    ) {
+        throw new Error(
+            `Nije moguće generisati Spojnice: ${
+                errSpojnice?.message ?? "nedovoljno podataka iz baze"
+            }`
+        );
     }
+
+    const createSpojniceRound = (row: any) => {
+        const originalPairs = [...row.parovi];
+
+        return {
+            tema: row.tema,
+            verzija: row.verzija,
+
+            // Lijeva strana se nasumično izmiješa JEDNOM na serveru.
+            pairs: shuffleArray(originalPairs),
+
+            // Desna strana se izmiješa nezavisno od lijeve.
+            rightItems: shuffleArray(originalPairs),
+        };
+    };
+
+    const spojniceData = {
+        runda_1: createSpojniceRound(
+            dbDataSpojnice[0]
+        ),
+        runda_2: createSpojniceRound(
+            dbDataSpojnice[1]
+        ),
+    };
 
     // 2. Ko Zna Zna
     const { data: dbDataKzk, error: errKzk } = await supabase.rpc("get_random_ko_zna_zna_questions"); 

@@ -1,96 +1,73 @@
 import Link from "next/link";
 import {
-    User,
-    ChevronRight,
-    Settings as SettingsIcon,
-    ArrowLeft,
+  ChevronRight,
+  User,
 } from "lucide-react";
+
+import InAppHeader from "@/components/ui/InAppHeader";
+import PageContainer from "@/components/ui/PageContainer";
 
 import LogOutButton from "./LogOutButton";
 
 export default function SettingsPage() {
-    return (
-        <main className="phone-frame relative flex min-h-[100dvh] flex-col overflow-hidden bg-background px-5 py-6 z-0">
+  return (
+    <PageContainer>
+      <InAppHeader
+        link_to="/home"
+        title="Podešavanja"
+      />
 
-            {/* Pozadinski sjaj */}
-            <div className="absolute right-0 top-0 -z-10 h-[260px] w-[260px] rounded-full bg-primary/10 blur-[120px] pointer-events-none" />
+      <div className="flex flex-col gap-2">
+        <SettingsLink
+          href="/settings/nalog"
+          title="Nalog"
+          icon={User}
+        />
 
-            {/* HEADER */}
-           <header className="mb-8 flex items-center justify-between">
-                <Link
-                    href="/home"
-                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-surface transition-colors hover:bg-surface-light"
-                    aria-label="Nazad"
-                >
-                    <ArrowLeft className="h-4 w-4" />
-                </Link>
+        <LogOutButton />
+      </div>
+    </PageContainer>
+  );
+}
 
-                <h1 className="text-xs font-bold uppercase tracking-[0.18em] text-text-secondary">
-                    Podešavanja
-                </h1>
+function SettingsLink({
+  href,
+  title,
+  icon: Icon,
+}: {
+  href: string;
+  title: string;
+  icon: React.ElementType;
+}) {
+  return (
+    <Link
+      href={href}
+      className="
+        group
+        flex
+        h-14
+        items-center
+        justify-between
+        rounded-xl
+        border
+        border-border
+        bg-surface
+        px-4
+        transition-colors
+        hover:bg-surface-light
+      "
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="h-4 w-4" />
+        </div>
 
-                <div className="h-9 w-9" />
-            </header>
+        <span className="text-sm font-black text-text">
+          {title}
+        </span>
+      </div>
 
-            {/* SETTINGS LIST */}
-            <div className="z-10 overflow-hidden rounded-2xl border border-border bg-surface/70">
-
-                <Link
-                    href="/settings/nalog"
-                    className="
-                        group
-                        flex items-center justify-between
-                        px-4 py-3
-                        transition-colors
-                        hover:bg-surface-light
-                    "
-                >
-                    <div className="flex items-center gap-3">
-
-                        <div
-                            className="
-                                flex h-8 w-8
-                                items-center justify-center
-                                rounded-lg
-                                bg-primary/10
-                                text-primary
-                                transition-colors
-                                group-hover:bg-primary/15
-                            "
-                        >
-                            <User className="h-4 w-4" />
-                        </div>
-
-                        <div className="flex flex-col">
-                            <span className="text-sm font-bold text-text">
-                                Nalog
-                            </span>
-
-                            <span className="text-[11px] font-medium text-text-secondary">
-                                Profil i podaci
-                            </span>
-                        </div>
-
-                    </div>
-
-                    <ChevronRight
-                        className="
-                            h-4 w-4
-                            text-text-muted
-                            transition
-                            group-hover:translate-x-0.5
-                            group-hover:text-primary
-                        "
-                    />
-                </Link>
-
-            </div>
-
-            {/* LOGOUT */}
-            <div className="z-10 mt-4">
-                <LogOutButton />
-            </div>
-
-        </main>
-    );
+      <ChevronRight className="h-4 w-4 text-text-muted transition-colors group-hover:text-primary" />
+    </Link>
+  );
 }

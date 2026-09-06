@@ -1,37 +1,88 @@
 interface GameOverCardProps {
-    gameName: string;
-    icon: React.ElementType; // Prihvata Lucide ikonicu kao komponentu
-    playerScore: number;
-    opponentScore: number;
-    igrac1: string;
-    igrac2: string;
+  gameName: string;
+  icon: React.ElementType;
+  playerScore: number;
+  opponentScore: number;
+  igrac1: string;
+  igrac2: string;
 }
 
-export function GameOverCard({ gameName, icon: Icon, playerScore, opponentScore, igrac1 , igrac2  }: GameOverCardProps) {
-    return (
-        <div className="flex flex-col items-center justify-center p-8 bg-surface/80 backdrop-blur-md border border-border rounded-[2rem] w-full max-w-[320px] shadow-2xl animate-in fade-in zoom-in duration-300">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4 shadow-inner">
-                <Icon className="h-8 w-8 text-primary" />
-            </div>
-            
-            <h2 className="text-xl font-black text-text mb-8 uppercase tracking-widest text-center">
-                {gameName} <br/> <span className="text-sm text-text-muted">završeno</span>
-            </h2>
-            
-            {/* SIMETRIČNI KONTEJNER */}
-            <div className="flex w-full justify-around items-center px-2">
-                <div className="flex flex-col items-center w-28 text-center">
-                    <span className="text-xs font-bold text-text-muted mb-1 uppercase tracking-wider">{igrac1 ? igrac1 : "Plavi"}</span>
-                    <span className="text-4xl font-black text-blue-500">{playerScore}</span>
-                </div>
-                
-                <div className="h-12 w-[2px] bg-border/50 rounded-full shrink-0"></div>
-                
-                <div className="flex flex-col items-center w-28 text-center">
-                    <span className="text-xs font-bold text-text-muted mb-1 uppercase tracking-wider">{igrac2 ? igrac2 : "Crveni"}</span>
-                    <span className="text-4xl font-black text-red-500">{opponentScore}</span>
-                </div>
-            </div>
-        </div>
-    );
+export function GameOverCard({
+  gameName,
+  icon: Icon,
+  playerScore,
+  opponentScore,
+  igrac1,
+  igrac2,
+}: GameOverCardProps) {
+  return (
+    <div className="card-base card-padding flex w-full max-w-xs flex-col items-center text-center shadow-lg">
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+        <Icon className="h-5 w-5" />
+      </div>
+
+      <div className="mb-6">
+        <p className="eyebrow">
+          Završeno
+        </p>
+
+        <h2 className="section-title mt-1">
+          {gameName}
+        </h2>
+      </div>
+
+      <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-4">
+        <ScoreBlock
+          username={
+            igrac1 || "Plavi"
+          }
+          score={playerScore}
+          tone="blue"
+        />
+
+        <div className="h-10 w-px bg-border" />
+
+        <ScoreBlock
+          username={
+            igrac2 || "Crveni"
+          }
+          score={opponentScore}
+          tone="red"
+        />
+      </div>
+    </div>
+  );
+}
+
+function ScoreBlock({
+  username,
+  score,
+  tone,
+}: {
+  username: string;
+  score: number;
+  tone: "blue" | "red";
+}) {
+  return (
+    <div className="min-w-0 text-center">
+      <p className="secondary-text truncate">
+        {username}
+      </p>
+
+      <p
+        className={`
+          mt-1
+          text-3xl
+          font-black
+          ${
+            tone === "blue"
+              ? "text-blue-500"
+              : "text-red-500"
+          }
+        `}
+      >
+        {score}
+      </p>
+    </div>
+  );
 }

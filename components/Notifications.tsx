@@ -1,187 +1,351 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Bell, Check, X, Loader2 } from "lucide-react";
-import { getFriendRequests, FriendRequest } from "@/data/friends";
-import { AcceptFriendRequest, RejectFriendRequest } from "@/actions/friends";
+import { useEffect, useState } from "react";
+import {
+  Bell,
+  Check,
+  Loader2,
+  X,
+} from "lucide-react";
+
+import {
+  AcceptFriendRequest,
+  RejectFriendRequest,
+} from "@/actions/friends";
+
+import {
+  FriendRequest,
+  getFriendRequests,
+} from "@/data/friends";
+
+import { IconButton } from "@/components/ui/IconButton";
 
 export default function Notifications() {
-    const [isOpen, setIsOpen] = useState(false);
-    const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
+  const [isOpen, setIsOpen] =
+    useState(false);
 
-    useEffect(() => {
-        const getFriendReq = async () => {
-            const friendReq = await getFriendRequests();
-            setFriendRequests(friendReq);
-        }; 
-        
-        getFriendReq(); 
-    }, []);
+  const [
+    friendRequests,
+    setFriendRequests,
+  ] = useState<FriendRequest[]>([]);
 
-    const unreadCount = friendRequests.length; 
+  useEffect(() => {
+    async function fetchFriendRequests() {
+      const requests =
+        await getFriendRequests();
 
-    const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString("sr-RS", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-        });
-    };
+      setFriendRequests(
+        requests || [],
+      );
+    }
 
-    return (
-        <div className="relative flex items-center justify-center z-50">
-            {/* Zvonce Dugme */}
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className={`cursor-pointer relative transition-colors ${
-                    isOpen 
-                        ? "text-text" 
-                        : unreadCount > 0 
-                            ? "text-primary hover:text-primary/80" 
-                            : "text-text-secondary hover:text-text"
-                }`}
-            >
-                <Bell className="h-6 w-6 stroke-[1.5]" />
-                
-                {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow-sm border border-background">
-                        {unreadCount}
-                    </span>
-                )}
-            </button>
+    fetchFriendRequests();
+  }, []);
 
-            {/* Modal Popup */}
-            {isOpen && (
-                <>
-                    <div 
-                        className="fixed inset-0 z-40" 
-                        onClick={() => setIsOpen(false)}
-                    />
+  const unreadCount =
+    friendRequests.length;
 
-                    <div className="absolute bottom-full right-[-15%] translate-x-1/2 mb-4 w-[300px] sm:w-[340px] bg-surface border border-border p-3 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.6)] animate-modal-in z-50 flex flex-col">
-                        
-                        {/* Header Modala */}
-                        <div className="flex items-center justify-between mb-2 border-b border-border/50 px-2 pb-2">
-                            <h3 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
-                                Obavještenja
-                            </h3>
-                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary">
-                                {unreadCount}
-                            </span>
-                        </div>
-                        
-                        {/* Lista zahteva */}
-                        <div className="flex flex-col gap-1.5 max-h-[300px] overflow-y-auto custom-scrollbar pt-1 pr-1">
-                            {friendRequests.length > 0 ? (
-                                friendRequests.map((req) => (
-                                    <FriendRequestItem 
-                                        key={req.id} 
-                                        req={req} 
-                                        formatDate={formatDate}
-                                        onActionComplete={(reqId) => {
-                                            // Kada se akcija završi, uklanjamo taj zahtev iz liste da se ne prikazuje više
-                                            setFriendRequests(prev => prev.filter(item => item.id !== reqId));
-                                        }}
-                                    />
-                                ))
-                            ) : (
-                                <div className="py-8 text-center text-xs font-medium text-text-secondary">
-                                    Trenutno nema obavještenja.
-                                </div>
-                            )}
-                        </div>
+  function formatDate(
+    dateString: string,
+  ) {
+    return new Date(
+      dateString,
+    ).toLocaleDateString("sr-RS", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  }
 
-                    </div>
-                </>
-            )}
-        </div>
+  function removeRequest(
+    requestId: number,
+  ) {
+    setFriendRequests((prev) =>
+      prev.filter(
+        (request) =>
+          request.id !== requestId,
+      ),
     );
+  }
+
+  return (
+    <div className="relative z-50 flex items-center justify-center">
+      <div className="relative">
+        <IconButton
+          type="button"
+          label="Obavještenja"
+          onClick={() =>
+            setIsOpen(
+              (prev) => !prev,
+            )
+          }
+          className={`
+            border-0
+            bg-transparent
+            ${
+              isOpen
+                ? "text-text"
+                : unreadCount > 0
+                  ? "text-primary"
+                  : "text-text-secondary"
+            }
+          `}
+        >
+          <Bell className="h-5 w-5" />
+        </IconButton>
+
+        {unreadCount > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full border border-background bg-red-500 px-1 text-[10px] font-black text-white">
+            {unreadCount > 9
+              ? "9+"
+              : unreadCount}
+          </span>
+        )}
+      </div>
+
+      {isOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Zatvori obavještenja"
+            className="fixed inset-0 z-40 cursor-default"
+            onClick={() =>
+              setIsOpen(false)
+            }
+          />
+
+          <div
+            className="
+                card-base
+                animate-modal-in
+                fixed
+                bottom-20
+                left-1/2
+                z-50
+                flex
+                w-[calc(100vw-2rem)]
+                max-w-[340px]
+                -translate-x-1/2
+                flex-col
+                overflow-hidden
+                shadow-lg
+            "
+            >
+            <header className="flex items-center justify-between border-b border-border p-4">
+              <div>
+                <p className="eyebrow">
+                  Nalog
+                </p>
+
+                <h3 className="card-title mt-0.5">
+                  Obavještenja
+                </h3>
+              </div>
+
+              <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-primary/10 px-2 text-[10px] font-black text-primary">
+                {unreadCount}
+              </span>
+            </header>
+
+            <div className="custom-scrollbar flex max-h-[300px] flex-col gap-2 overflow-y-auto p-2">
+              {friendRequests.length >
+              0 ? (
+                friendRequests.map(
+                  (request) => (
+                    <FriendRequestItem
+                      key={
+                        request.id
+                      }
+                      req={request}
+                      formatDate={
+                        formatDate
+                      }
+                      onActionComplete={
+                        removeRequest
+                      }
+                    />
+                  ),
+                )
+              ) : (
+                <NotificationsEmpty />
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
-// ==========================================
-// POMÓDNA KOMPONENTA ZA JEDAN ZAHTEV
-// ==========================================
-function FriendRequestItem({ req, formatDate, onActionComplete }: { req: FriendRequest; formatDate: (d: string) => string; onActionComplete: (id: number) => void }) {
-    const [loading, setLoading] = useState(false);
-    const [actionStatus, setActionStatus] = useState<"idle" | "accepted" | "declined">("idle");
+function FriendRequestItem({
+  req,
+  formatDate,
+  onActionComplete,
+}: {
+  req: FriendRequest;
+  formatDate: (
+    date: string,
+  ) => string;
+  onActionComplete: (
+    id: number,
+  ) => void;
+}) {
+  const [loading, setLoading] =
+    useState(false);
 
-    const handleAccept = async () => {
-        setLoading(true);
-        const res = await AcceptFriendRequest(req.id);
-        setLoading(false);
+  const [
+    actionStatus,
+    setActionStatus,
+  ] = useState<
+    "idle" | "accepted" | "declined"
+  >("idle");
 
-        if (res?.success) {
-            setActionStatus("accepted");
-            setTimeout(() => {
-                onActionComplete(req.id); // Uklanja iz liste nakon kratke poruke uspeha
-            }, 1000);
-        }
-    };
+  async function handleAccept() {
+    setLoading(true);
 
-    const handleDecline = async () => {
-        setLoading(true);
-        const res = await RejectFriendRequest(req.id);
-        setLoading(false);
-        if (res?.success) {
-            setActionStatus("declined");
-            setTimeout(() => {
-                onActionComplete(req.id); // Uklanja iz liste nakon kratke poruke uspeha
-            }, 1000);
-        }
+    try {
+      const res =
+        await AcceptFriendRequest(
+          req.id,
+        );
+
+      if (res?.success) {
+        setActionStatus(
+          "accepted",
+        );
+
+        setTimeout(() => {
+          onActionComplete(req.id);
+        }, 1000);
+      }
+    } finally {
+      setLoading(false);
     }
-    return (
-        <div className="flex items-center justify-between p-2.5 rounded-xl border border-border/60 bg-surface-light/40 hover:bg-surface-light transition-colors gap-2">
-            
-            {/* LEVA STRANA: Uvek ista (Korisničko ime, XP i Datum) */}
-            <div className="flex flex-col min-w-0">
-                <div className="flex items-center gap-1.5 truncate">
-                    <span className="font-semibold text-text text-xs truncate">
-                        {req.sender.username}
-                    </span>
-                    <span className="text-[10px] font-bold text-primary shrink-0">
-                        ({req.sender.experience} XP)
-                    </span>
-                </div>
-                <span className="text-[10px] font-medium text-text-secondary mt-0.5">
-                    {formatDate(req.created_at)}
-                </span>
-            </div>
-            
-            {/* DESNA STRANA: Prikazuje loader, poruku o uspehu/neuspjehu ili dugmad */}
-            <div className="flex items-center gap-1.5 shrink-0">
-                {loading ? (
-                    <div className="flex h-7 w-14 items-center justify-center">
-                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                    </div>
-                ) : actionStatus === "accepted" ? (
-                    <span className="text-[11px] font-bold text-green-500 animate-in fade-in px-1">
-                        Prihvaćeno!
-                    </span>
-                ) : actionStatus === "declined" ? (
-                    <span className="text-[11px] font-bold text-red-500 animate-in fade-in px-1">
-                        Odbijeno.
-                    </span>
-                ) : (
-                    <>
-                        <button 
-                            onClick={handleAccept}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-green-500 hover:text-white transition-all cursor-pointer"
-                            title="Prihvati"
-                        >
-                            <Check className="h-4 w-4 stroke-[2.5]" />
-                        </button>
+  }
 
-                        <button 
-                            onClick={handleDecline}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all cursor-pointer"
-                            title="Odbij"
-                        >
-                            <X className="h-4 w-4 stroke-[2.5]" />
-                        </button>
-                    </>
-                )}
-            </div>
+  async function handleDecline() {
+    setLoading(true);
+
+    try {
+      const res =
+        await RejectFriendRequest(
+          req.id,
+        );
+
+      if (res?.success) {
+        setActionStatus(
+          "declined",
+        );
+
+        setTimeout(() => {
+          onActionComplete(req.id);
+        }, 1000);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background p-4 transition-colors hover:bg-surface-light/40">
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate text-xs font-black text-text">
+            {req.sender.username}
+          </span>
+
+          <span className="shrink-0 text-[10px] font-bold text-primary">
+            {
+              req.sender
+                .experience
+            }{" "}
+            XP
+          </span>
         </div>
-    );
+
+        <p className="secondary-text mt-1">
+          {formatDate(
+            req.created_at,
+          )}
+        </p>
+      </div>
+
+      <div className="flex shrink-0 items-center gap-1.5">
+        {loading ? (
+          <div className="flex h-8 w-16 items-center justify-center">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          </div>
+        ) : actionStatus ===
+          "accepted" ? (
+          <span className="text-[10px] font-bold text-emerald-500">
+            Prihvaćeno
+          </span>
+        ) : actionStatus ===
+          "declined" ? (
+          <span className="text-[10px] font-bold text-red-500">
+            Odbijeno
+          </span>
+        ) : (
+          <>
+            <IconButton
+              type="button"
+              label="Prihvati zahtjev"
+              onClick={handleAccept}
+              className="
+                h-8
+                w-8
+                border-emerald-500/20
+                bg-emerald-500/10
+                text-emerald-500
+                hover:border-emerald-500/30
+                hover:bg-emerald-500/20
+                hover:text-emerald-500
+              "
+            >
+              <Check className="h-3.5 w-3.5" />
+            </IconButton>
+
+            <IconButton
+              type="button"
+              label="Odbij zahtjev"
+              onClick={
+                handleDecline
+              }
+              className="
+                h-8
+                w-8
+                border-red-500/20
+                bg-red-500/10
+                text-red-500
+                hover:border-red-500/30
+                hover:bg-red-500/20
+                hover:text-red-500
+              "
+            >
+              <X className="h-3.5 w-3.5" />
+            </IconButton>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NotificationsEmpty() {
+  return (
+    <div className="flex min-h-32 flex-col items-center justify-center px-4 text-center">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-surface-light text-text-secondary">
+        <Bell className="h-4 w-4" />
+      </div>
+
+      <p className="card-title">
+        Nema obavještenja
+      </p>
+
+      <p className="secondary-text mt-1">
+        Novi zahtjevi za prijateljstvo
+        će se pojaviti ovdje.
+      </p>
+    </div>
+  );
 }

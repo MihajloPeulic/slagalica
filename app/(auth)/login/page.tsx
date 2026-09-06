@@ -4,38 +4,37 @@ import LoginForm from "./LoginForm";
 
 export default function LoginPage() {
   return (
-    <main className="phone-frame relative flex flex-col justify-center px-6 min-h-[100dvh] bg-background z-0 overflow-hidden">
+    <main className="page-container page-spacing flex min-h-[100dvh] flex-col justify-center">
+      <header className="mb-8 text-center">
+        <p className="eyebrow">
+          Prijava
+        </p>
 
-      {/* POZADINSKI SJAJ */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] bg-primary/15 blur-[120px] rounded-full pointer-events-none -z-10" />
-
-      {/* HEADER */}
-      <header className="mb-10 text-center z-10">
-        <h1 className="text-4xl font-black tracking-tight text-text drop-shadow-sm mb-2">
+        <h1 className="page-title mt-1">
           Dobrodošli nazad
         </h1>
 
-        <p className="text-sm font-medium text-text-secondary">
-          Prijavite se da nastavite sa igrom
+        <p className="secondary-text mt-2">
+          Prijavite se da nastavite sa igrom.
         </p>
       </header>
 
       <Suspense
         fallback={
-          <div className="text-center text-sm text-text-secondary">
+          <p className="secondary-text text-center">
             Učitavanje...
-          </div>
+          </p>
         }
       >
         <LoginForm />
       </Suspense>
 
-      <footer className="mt-8 text-center z-10">
-        <p className="text-sm text-text-secondary font-medium">
+      <footer className="mt-8 text-center">
+        <p className="secondary-text">
           Nemaš nalog?{" "}
           <Link
             href="/register"
-            className="font-bold text-primary hover:text-primary-hover transition-colors"
+            className="font-black text-primary transition-colors hover:text-primary-hover"
           >
             Registruj se
           </Link>

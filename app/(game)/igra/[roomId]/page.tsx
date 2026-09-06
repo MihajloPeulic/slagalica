@@ -622,219 +622,290 @@ export default function GameRoomPage() {
         preGameCountdown <= 0;
 
     if (loading) {
-        return (
-            <div className="flex h-screen items-center justify-center bg-background">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-        );
-    }
+    return (
+        <div className="flex min-h-[100dvh] items-center justify-center bg-background">
+            <div className="flex flex-col items-center gap-3">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
 
-    if (error) {
-        return (
-            <div className="flex flex-col h-screen items-center justify-center bg-background text-red-500 gap-2">
-                <ShieldAlert className="h-10 w-10" />
-                <p className="font-bold">
+                <p className="secondary-text">
+                    Učitavanje igre...
+                </p>
+            </div>
+        </div>
+    );
+}
+
+if (error) {
+    return (
+        <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
+            <div className="flex max-w-xs flex-col items-center text-center">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
+                    <ShieldAlert className="h-5 w-5" />
+                </div>
+
+                <p className="card-title text-red-400">
                     {error}
                 </p>
             </div>
-        );
-    }
+        </div>
+    );
+}
 
-    if(roomData.status === "deleted"){
-        setTimeout(() => {
-            redirect('/home')
-        }, 3000)
-        return (
-            <div className="flex flex-col h-screen items-center justify-center bg-background text-red-500 gap-2">
-                <ShieldAlert className="h-10 w-10" />
-                <p className="font-bold">
-                    Igrač je odbio poziv.
-                </p>
-            </div>
-        );
-    }
-
-    const gameNames = [
-        "Slagalica",
-        "Moj Broj",
-        "Skocko",
-        "Ko Zna Zna",
-        "Spojnice",
-        "Asocijacije",
-        "Rezultati",
-    ];
+if (roomData.status === "deleted") {
+    setTimeout(() => {
+        redirect("/home");
+    }, 3000);
 
     return (
-        <div className="flex flex-col w-full items-center justify-between min-h-screen p-6 bg-background text-text">
-            <GameHeader
-                role={myRole}
-                player1Score={localScoreBlue}
-                player2Score={localScoreRed}
-                timeLeft={currentHeaderTime}
-                isSubmitted={false}
-                blueName={blueUsername}
-                redName={redUsername ?? undefined}
-            />
+        <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
+            <div className="flex max-w-xs flex-col items-center text-center">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
+                    <ShieldAlert className="h-5 w-5" />
+                </div>
 
-            <main className="mt-5 flex flex-col items-center justify-center text-center my-auto w-full max-w-md gap-4">
-                {!gameReady ? (
-                    <div className="flex flex-col items-center gap-5 p-6 bg-surface border border-border rounded-3xl w-full shadow-xl overflow-hidden">
-                        <div className="flex items-center justify-center gap-5 w-full">
-                            <div className="flex flex-col items-center gap-2 min-w-[92px]">
-                                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-500/15 border border-blue-500/40 text-blue-400 text-2xl font-black shadow-[0_0_24px_rgba(59,130,246,0.12)]">
-                                    {blueInitial}
-                                </div>
+                <p className="card-title">
+                    Igrač je odbio poziv.
+                </p>
 
-                                <span className="max-w-[92px] truncate text-xs font-bold text-text">
-                                    {blueUsername}
-                                </span>
+                <p className="secondary-text mt-1.5">
+                    Povratak na početnu stranicu...
+                </p>
+            </div>
+        </div>
+    );
+}
+
+const gameNames = [
+    "Slagalica",
+    "Moj Broj",
+    "Skocko",
+    "Ko Zna Zna",
+    "Spojnice",
+    "Asocijacije",
+    "Rezultati",
+];
+
+return (
+    <div className="page-container flex min-h-[100dvh] flex-col bg-background py-4 text-text">
+        {/* HEADER */}
+        <GameHeader
+            role={myRole}
+            player1Score={localScoreBlue}
+            player2Score={localScoreRed}
+            timeLeft={currentHeaderTime}
+            isSubmitted={false}
+            blueName={blueUsername}
+            redName={redUsername ?? undefined}
+        />
+
+        {/* GAME AREA */}
+        <main className="flex w-full flex-1 items-center justify-center py-6">
+            {!gameReady ? (
+                <div className="card-base card-padding flex w-full flex-col items-center">
+                    {/* PLAYERS */}
+                    <div className="flex w-full items-center justify-center gap-5">
+                        <div className="flex min-w-0 flex-1 flex-col items-center gap-2">
+                            <div className="flex h-16 w-16 items-center justify-center rounded-full border border-blue-500/30 bg-blue-500/10 text-2xl font-black text-blue-400">
+                                {blueInitial}
                             </div>
 
-                            <div className="text-text-muted text-xs font-black uppercase">
-                                VS
-                            </div>
-
-                            <div className="flex flex-col items-center gap-2 min-w-[92px]">
-                                <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-red-500/15 border border-red-500/40 text-red-400 shadow-[0_0_24px_rgba(239,68,68,0.12)]">
-                                    <span
-                                        key={redInitial}
-                                        className="text-2xl font-black animate-in slide-in-from-top-6 fade-in duration-200"
-                                    >
-                                        {redInitial}
-                                    </span>
-                                </div>
-
-                                <span className="max-w-[92px] truncate text-xs font-bold text-text">
-                                    {redUsername || "Tražimo igrača..."}
-                                </span>
-                            </div>
+                            <span className="w-full truncate text-center text-xs font-black text-text">
+                                {blueUsername}
+                            </span>
                         </div>
 
-                        {!opponentMatched ? (
-                            <div className="flex flex-col items-center gap-2">
-                                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                        <span className="shrink-0 text-xs font-black text-text-muted">
+                            VS
+                        </span>
 
-                                <span className="text-xs font-bold text-text-secondary">
-                                    Čekamo protivnika da uđe...
+                        <div className="flex min-w-0 flex-1 flex-col items-center gap-2">
+                            <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-red-500/30 bg-red-500/10 text-red-400">
+                                <span
+                                    key={redInitial}
+                                    className="animate-in fade-in slide-in-from-top-2 text-2xl font-black duration-200"
+                                >
+                                    {redInitial}
                                 </span>
                             </div>
-                        ) : (
-                            <div className="flex flex-col items-center gap-2 animate-in fade-in zoom-in-95">
-                                <span className="text-[10px] uppercase tracking-widest font-black text-emerald-500">
-                                    Protivnik pronađen
-                                </span>
 
-                                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 border border-primary/30 text-primary text-2xl font-black">
+                            <span className="w-full truncate text-center text-xs font-black text-text">
+                                {redUsername || "Tražimo igrača..."}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* STATUS */}
+                    <div className="mt-8 flex min-h-24 items-center justify-center">
+                        {!opponentMatched ? (
+                            <div className="flex flex-col items-center gap-3 text-center">
+                                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+
+                                <div>
+                                    <p className="card-title">
+                                        Tražimo protivnika
+                                    </p>
+
+                                    <p className="secondary-text mt-1">
+                                        Čekamo drugog igrača da uđe u partiju.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center text-center animate-in fade-in">
+                                <p className="eyebrow">
+                                    Protivnik pronađen
+                                </p>
+
+                                <div className="mt-3 flex h-14 w-14 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-2xl font-black tabular-nums text-primary">
                                     {preGameCountdown}
                                 </div>
 
-                                <span className="text-xs font-bold text-text-secondary">
+                                <p className="secondary-text mt-3">
                                     Igra počinje za {preGameCountdown}s
-                                </span>
+                                </p>
                             </div>
                         )}
                     </div>
-                ) : (
-                    <div className="flex flex-col items-center gap-4 w-full">
-                        <span className="text-[10px] uppercase font-bold text-text-secondary bg-surface-light px-2 py-1 rounded-md">
+                </div>
+            ) : (
+                <div className="flex w-full flex-col items-center justify-center">
+                    {/* GAME LABEL */}
+                    <div className="mb-5 flex items-center justify-center">
+                        <span className="rounded-lg border border-border bg-surface px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-text-secondary">
                             {gameNames[gameIndex] ?? ""}
-                            {gameIndex !== 6 && ` / Runda ${round} / 2`}
-                        </span>
 
-                          {isConnected &&
+                            {gameIndex !== 6 &&
+                                ` / Runda ${round} / 2`}
+                        </span>
+                    </div>
+
+                    {/* GAME */}
+                    <div className="flex w-full items-center justify-center">
+                        {/* {isConnected &&
                             gameIndex === 0 &&
                             myRole &&
                             gameState?.rec && (
                                 <PronadjiRec
                                     myRole={myRole}
                                     round={round}
-                                    tiles={round === 1 ? gameState.rec.runda_1: gameState.rec.runda_2}
+                                    tiles={
+                                        round === 1
+                                            ? gameState.rec.runda_1
+                                            : gameState.rec.runda_2
+                                    }
                                     sendBroadcast={sendBroadcast}
                                     incomingBroadcast={lastBroadcastPayload}
-                                    onScoreSubmit={ handleScoreSubmit }
-                                    onNextRound={ handleNextRound }
-                                    onTimerTick={time => setCurrentHeaderTime(time)}
+                                    onScoreSubmit={handleScoreSubmit}
+                                    onNextRound={handleNextRound}
+                                    onTimerTick={time =>
+                                        setCurrentHeaderTime(time)
+                                    }
                                 />
-                            )} 
-                            
-                            {isConnected &&
+                            )}
+
+                        {isConnected &&
                             gameIndex === 1 &&
                             myRole &&
                             gameState?.rec && (
                                 <MojBroj
                                     myRole={myRole}
                                     round={round}
-                                    data={round === 1 ? gameState.broj.runda_1: gameState.broj.runda_2}
+                                    data={
+                                        round === 1
+                                            ? gameState.broj.runda_1
+                                            : gameState.broj.runda_2
+                                    }
                                     sendBroadcast={sendBroadcast}
                                     incomingBroadcast={lastBroadcastPayload}
-                                    onScoreSubmit={ handleScoreSubmit }
-                                    onNextRound={ handleNextRound }
-                                    onTimerTick={time => setCurrentHeaderTime(time)}
+                                    onScoreSubmit={handleScoreSubmit}
+                                    onNextRound={handleNextRound}
+                                    onTimerTick={time =>
+                                        setCurrentHeaderTime(time)
+                                    }
                                 />
-                            )} 
+                            )}
 
-                         {isConnected &&
+                        {isConnected &&
                             gameIndex === 2 &&
                             myRole &&
                             gameState?.rec && (
                                 <Skocko
                                     myRole={myRole}
                                     round={round}
-                                    data={round === 1 ? gameState.skocko.runda_1: gameState.skocko.runda_2}
+                                    data={
+                                        round === 1
+                                            ? gameState.skocko.runda_1
+                                            : gameState.skocko.runda_2
+                                    }
                                     sendBroadcast={sendBroadcast}
                                     incomingBroadcast={lastBroadcastPayload}
-                                    onScoreSubmit={ handleScoreSubmit }
-                                    onNextRound={ handleNextRound }
-                                    onTimerTick={time => setCurrentHeaderTime(time)}
+                                    onScoreSubmit={handleScoreSubmit}
+                                    onNextRound={handleNextRound}
+                                    onTimerTick={time =>
+                                        setCurrentHeaderTime(time)
+                                    }
                                 />
-                            )}  
+                            )}*/}
 
-
-                             {isConnected &&
-                            gameIndex === 3 &&
+                        {/* {isConnected &&
+                            gameIndex === 0 &&
                             myRole &&
                             gameState?.rec && (
                                 <KoZnaZna
                                     myRole={myRole}
                                     round={round}
-                                    data={ gameState.ko_zna_zna}
+                                    data={gameState.ko_zna_zna}
                                     sendBroadcast={sendBroadcast}
                                     incomingBroadcast={lastBroadcastPayload}
-                                    onScoreSubmit={ handleScoreSubmit }
-                                    onNextRound={ handleNextRound }
-                                    onTimerTick={time => setCurrentHeaderTime(time)}
+                                    onScoreSubmit={handleScoreSubmit}
+                                    onNextRound={handleNextRound}
+                                    onTimerTick={time =>
+                                        setCurrentHeaderTime(time)
+                                    }
                                 />
-                            )}  
+                            )}  */}
 
-                             {isConnected &&
-                            gameIndex === 4 &&
+                        {isConnected &&
+                            gameIndex === 0 &&
                             myRole &&
                             gameState?.rec && (
                                 <Spojnice
                                     myRole={myRole}
                                     round={round}
-                                    data={round === 1 ? gameState.spojnice.runda_1 : gameState.spojnice.runda_2}
+                                    data={
+                                        round === 1
+                                            ? gameState.spojnice.runda_1
+                                            : gameState.spojnice.runda_2
+                                    }
                                     sendBroadcast={sendBroadcast}
                                     incomingBroadcast={lastBroadcastPayload}
-                                    onScoreSubmit={ handleScoreSubmit }
-                                    onNextRound={ handleNextRound }
-                                    onTimerTick={time => setCurrentHeaderTime(time)}
+                                    onScoreSubmit={handleScoreSubmit}
+                                    onNextRound={handleNextRound}
+                                    onTimerTick={time =>
+                                        setCurrentHeaderTime(time)
+                                    }
                                 />
-                            )}  
+                            )} 
 
-                           {isConnected &&
+                        {isConnected &&
                             gameIndex === 5 &&
                             myRole &&
                             gameState?.rec && (
                                 <Asocijacije
                                     myRole={myRole}
-                                    data={round === 1 ? gameState.asocijacije.runda_1: gameState.asocijacije.runda_2}
+                                    data={
+                                        round === 1
+                                            ? gameState.asocijacije.runda_1
+                                            : gameState.asocijacije.runda_2
+                                    }
                                     round={round}
                                     sendBroadcast={sendBroadcast}
                                     incomingBroadcast={lastBroadcastPayload}
-                                    onScoreSubmit={ handleScoreSubmit }
-                                    onNextRound={ handleNextRound }
-                                    onTimerTick={time => setCurrentHeaderTime(time)}
+                                    onScoreSubmit={handleScoreSubmit}
+                                    onNextRound={handleNextRound}
+                                    onTimerTick={time =>
+                                        setCurrentHeaderTime(time)
+                                    }
                                 />
                             )}
 
@@ -850,15 +921,18 @@ export default function GameRoomPage() {
                                     roomId={roomId}
                                     onLeave={handleLeaveGame}
                                 />
-                            )} 
+                            )}
                     </div>
-                )}
-            </main>
+                </div>
+            )}
+        </main>
 
-            <footer className="text-center text-[10px] text-text-secondary/40 uppercase tracking-widest">
-                Realtime Multiplayer Room:{" "}
-                {roomId.slice(0, 8)}
-            </footer>
-        </div>
-    );
+        {/* FOOTER */}
+        <footer className="shrink-0 pb-1 text-center">
+            <p className="text-[10px] font-semibold text-text-muted">
+                Room {roomId.slice(0, 8)}
+            </p>
+        </footer>
+    </div>
+);
 }
