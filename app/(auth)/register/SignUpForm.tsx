@@ -1,28 +1,41 @@
 "use client";
 
-import { RegisterAction } from "@/actions/auth";
-import { useState } from "react";
+import {
+  useState,
+} from "react";
+
+import {
+  RegisterAction,
+} from "@/actions/auth";
 
 import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { FormMessage } from "@/components/ui/FormMessage";
 import { Button } from "@/components/ui/Button";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 export default function SignUpForm() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] =
+    useState(false);
+
+  const [error, setError] =
+    useState<string | null>(null);
 
   async function handleRegister(
     e: React.FormEvent<HTMLFormElement>,
   ) {
     e.preventDefault();
 
+    if (loading) return;
+
     setLoading(true);
     setError(null);
 
-    const formData = new FormData(e.currentTarget);
+    const formData =
+      new FormData(e.currentTarget);
 
-    const res = await RegisterAction(formData);
+    const res =
+      await RegisterAction(formData);
 
     if (res?.error) {
       setError(res.error);
@@ -33,7 +46,9 @@ export default function SignUpForm() {
 
   return (
     <>
-      <FormMessage error={error ?? undefined} />
+      <FormMessage
+        error={error ?? undefined}
+      />
 
       <form
         onSubmit={handleRegister}
@@ -45,6 +60,7 @@ export default function SignUpForm() {
             name="username"
             type="text"
             required
+            disabled={loading}
             autoComplete="username"
             placeholder="igrac123"
           />
@@ -56,28 +72,32 @@ export default function SignUpForm() {
             name="email"
             type="email"
             required
+            disabled={loading}
             autoComplete="email"
             placeholder="tvoj@email.com"
           />
         </FormField>
 
-        <FormField label="Lozinka">
-          <Input
+        <FormField
+          label="Lozinka"
+          hint="Najmanje 8 karaktera, jedno veliko slovo i jedan broj."
+        >
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             required
+            disabled={loading}
             autoComplete="new-password"
             placeholder="••••••••"
           />
         </FormField>
 
         <FormField label="Potvrdi lozinku">
-          <Input
+          <PasswordInput
             id="confirm_password"
             name="confirm_password"
-            type="password"
             required
+            disabled={loading}
             autoComplete="new-password"
             placeholder="••••••••"
           />

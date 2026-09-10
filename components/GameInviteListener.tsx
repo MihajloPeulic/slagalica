@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 
 import { createClientSupabaseClient } from "@/utils/supabase/client";
-import { rejectGameInvite } from "@/actions/game";
+import { rejectGameInvite } from "@/actions/game/game";
 import { IconButton } from "@/components/ui/IconButton";
 
 const supabase =

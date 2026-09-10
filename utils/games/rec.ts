@@ -204,7 +204,7 @@ function generateNumbersRound() {
 }
 
 function generateSkockoRound() {
-    const symbols = ["skocko", "tref", "pik", "srce", "karo", "zvezda"];
+    const symbols = ["lavic", "dijamant", "detelina", "munja", "vatra", "mesec"];
     return {
         secretCode: Array.from({ length: 4 }, () => symbols[Math.floor(Math.random() * symbols.length)])
     };

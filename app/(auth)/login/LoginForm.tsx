@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-
+import {PasswordInput} from "@/components/ui/PasswordInput";
 import { LoginAction } from "@/actions/auth";
 
 import { FormField } from "@/components/ui/FormField";
@@ -87,12 +87,12 @@ export default function LoginForm() {
             </Link>
           </div>
 
-          <Input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             required
-            autoComplete="current-password"
+            disabled={loading}
+            autoComplete="new-password"
             placeholder="••••••••"
           />
         </div>

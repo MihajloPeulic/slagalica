@@ -1,4 +1,5 @@
 import {
+  ShieldAlert,
   Swords,
   User,
 } from "lucide-react";
@@ -9,8 +10,9 @@ import { GetFriendshipAndFriend } from "@/actions/friends";
 import InAppHeader from "@/components/ui/InAppHeader";
 import PageContainer from "@/components/ui/PageContainer";
 import PageSection from "@/components/ui/PageSection";
-import { Button } from "@/components/ui/Button";
+import Link from "next/link";
 import ProfileStats from "@/components/ProfileStats";
+import {Button} from "@/components/ui/Button";
 
 interface PageProps {
   params: Promise<{
@@ -29,13 +31,32 @@ export default async function FriendDetailsPage({
   const myId =
     currentUser?.user?.id;
 
-  const {
-    friendship,
-    friend,
-  } = await GetFriendshipAndFriend(
-    friendId,
-    myId as string,
+  const res = await GetFriendshipAndFriend(
+    friendId
   );
+
+  if(!res.friendship || !res.friend) {
+    return (
+      <div className="flex flex-col min-h-[100dvh] items-center justify-center bg-background px-4">
+            <div className="flex max-w-xs flex-col items-center text-center">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
+                    <ShieldAlert className="h-5 w-5" />
+                </div>
+
+                <p className="card-title text-red-400">
+                    {res.error}
+                </p>
+            </div>
+            <Link
+                href="/home"
+                className="mt-6 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
+            >
+                Nazad na početnu
+            </Link>
+        </div>
+    )}
+
+  const { friendship, friend } = res;
 
   let friendWins = 0;
   let myWins = 0;

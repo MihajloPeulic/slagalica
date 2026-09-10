@@ -5,178 +5,191 @@ import { rateLimits } from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/get-client-ip";
 import { redirect } from "next/navigation";
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PASSWORD_REGEX = /^(?=.*\d)(?=.*[A-Z]).{8,}$/;
+const EMAIL_REGEX =
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export async function RegisterAction(formData: FormData) {
-  const email = String(formData.get("email") ?? "")
-    .trim()
-    .toLowerCase();
+const PASSWORD_REGEX =
+    /^(?=.*\d)(?=.*[A-Z]).{8,}$/;
 
-  const password = String(
-    formData.get("password") ?? ""
-  );
+export async function RegisterAction(
+    formData: FormData
+) {
+    const email = String(
+        formData.get("email") ?? ""
+    )
+        .trim()
+        .toLowerCase();
 
-  const confirmPassword = String(
-    formData.get("confirm_password") ?? ""
-  );
+    const password = String(
+        formData.get("password") ?? ""
+    );
 
-  const username = String(
-    formData.get("username") ?? ""
-  ).trim();
+    const confirmPassword = String(
+        formData.get("confirm_password") ?? ""
+    );
 
-  // -------------------------
-  // INPUT VALIDATION
-  // -------------------------
+    const username = String(
+        formData.get("username") ?? ""
+    ).trim();
 
-  if (!EMAIL_REGEX.test(email)) {
-    return {
-      error: "Ovo nije pravi email.",
-    };
-  }
+    // =========================
+    // INPUT VALIDATION
+    // =========================
 
-  if (username.length < 3 || username.length > 16) {
-    return {
-      error:
-        "Username mora imati između 3 i 16 karaktera.",
-    };
-  }
+    if (!EMAIL_REGEX.test(email)) {
+        return {
+            error: "Ovo nije pravi email.",
+        };
+    }
 
-  if (!PASSWORD_REGEX.test(password)) {
-    return {
-      error:
-        "Lozinka mora imati najmanje 8 karaktera, bar jedno veliko slovo i bar jedan broj.",
-    };
-  }
+    if (
+        username.length < 3 ||
+        username.length > 16
+    ) {
+        return {
+            error:
+                "Username mora imati između 3 i 16 karaktera.",
+        };
+    }
 
-  if (password !== confirmPassword) {
-    return {
-      error: "Lozinke se ne poklapaju.",
-    };
-  }
+    if (!PASSWORD_REGEX.test(password)) {
+        return {
+            error:
+                "Lozinka mora imati najmanje 8 karaktera, bar jedno veliko slovo i bar jedan broj.",
+        };
+    }
 
-  // -------------------------
-  // RATE LIMIT
-  // -------------------------
+    if (password !== confirmPassword) {
+        return {
+            error: "Lozinke se ne poklapaju.",
+        };
+    }
 
-  const ip = await getClientIp();
+    // =========================
+    // RATE LIMIT
+    // =========================
 
-  const { success } =
-    await rateLimits.register.limit(ip);
+    const ip = await getClientIp();
 
-  if (!success) {
-    return {
-      error:
-        "Previše pokušaja registracije. Pokušaj ponovo za nekoliko minuta.",
-    };
-  }
+    const { success } =
+        await rateLimits.register.limit(ip);
 
-  // -------------------------
-  // SUPABASE
-  // -------------------------
+    if (!success) {
+        return {
+            error:
+                "Previše pokušaja registracije. Pokušaj ponovo za nekoliko minuta.",
+        };
+    }
 
-  const supabase =
-    await createServerSupabaseClient();
+    // =========================
+    // SUPABASE
+    // =========================
 
-  const { error: authError } =
-    await supabase.auth.signUp({
-      email,
-      password,
+    const supabase =
+        await createServerSupabaseClient();
 
-      options: {
-        data: {
-          username,
-        },
-      },
-    });
+    const { error: authError } =
+        await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: {
+                    username,
+                },
+            },
+        });
 
-  if (authError) {
-    return {
-      error: authError.message,
-    };
-  }
+    if (authError) {
+        return {
+            error: authError.message,
+        };
+    }
 
-  redirect("/home");
+    redirect("/home");
 }
 
-export async function LoginAction(formData: FormData) {
-  const email = String(
-    formData.get("email") ?? ""
-  )
-    .trim()
-    .toLowerCase();
+export async function LoginAction(
+    formData: FormData
+) {
+    const email = String(
+        formData.get("email") ?? ""
+    )
+        .trim()
+        .toLowerCase();
 
-  const password = String(
-    formData.get("password") ?? ""
-  );
+    const password = String(
+        formData.get("password") ?? ""
+    );
 
-  // -------------------------
-  // INPUT VALIDATION
-  // -------------------------
+    // =========================
+    // INPUT VALIDATION
+    // =========================
 
-  if (!email || !password) {
-    return {
-      error: "Email i lozinka su obavezni.",
-    };
-  }
+    if (!email || !password) {
+        return {
+            error:
+                "Email i lozinka su obavezni.",
+        };
+    }
 
-  if (!EMAIL_REGEX.test(email)) {
-    return {
-      error: "Email ili lozinka nisu ispravni.",
-    };
-  }
+    if (!EMAIL_REGEX.test(email)) {
+        return {
+            error:
+                "Email ili lozinka nisu ispravni.",
+        };
+    }
 
-  // -------------------------
-  // RATE LIMIT
-  // -------------------------
+    // =========================
+    // RATE LIMIT
+    // =========================
 
-  const ip = await getClientIp();
+    const ip = await getClientIp();
 
-  const { success } =
-    await rateLimits.login.limit(ip);
+    const { success } =
+        await rateLimits.login.limit(ip);
 
-  if (!success) {
-    return {
-      error:
-        "Previše pokušaja prijave. Pokušaj ponovo za minut.",
-    };
-  }
+    if (!success) {
+        return {
+            error:
+                "Previše pokušaja prijave. Pokušaj ponovo za minut.",
+        };
+    }
 
-  // -------------------------
-  // SUPABASE
-  // -------------------------
+    // =========================
+    // SUPABASE
+    // =========================
 
-  const supabase =
-    await createServerSupabaseClient();
+    const supabase =
+        await createServerSupabaseClient();
 
-  const { error: authError } =
-    await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error: authError } =
+        await supabase.auth.signInWithPassword({
+            email,
+            password,
+        });
 
-  if (authError) {
-    return {
-      error:
-        "Email ili lozinka nisu ispravni.",
-    };
-  }
+    if (authError) {
+        return {
+            error:
+                "Email ili lozinka nisu ispravni.",
+        };
+    }
 
-  redirect("/home");
+    redirect("/home");
 }
 
 export async function LogOutAction() {
-  const supabase =
-    await createServerSupabaseClient();
+    const supabase =
+        await createServerSupabaseClient();
 
-  const { error: authError } =
-    await supabase.auth.signOut();
+    const { error: authError } =
+        await supabase.auth.signOut();
 
-  if (authError) {
-    return {
-      error: authError.message,
-    };
-  }
+    if (authError) {
+        return {
+            error: authError.message,
+        };
+    }
 
-  redirect("/login");
+    redirect("/login");
 }

@@ -519,10 +519,17 @@ function PasswordForm({
       >
         <FormField label="Trenutna lozinka">
           <PasswordInput
+            id="current_password"
+            name="current_password"
             value={oldPassword}
-            onChange={
-              setOldPassword
+            onChange={(event) =>
+              setOldPassword(
+                event.target.value,
+              )
             }
+            required
+            autoFocus
+            disabled={loading}
             autoComplete="current-password"
             placeholder="Unesi trenutnu lozinku"
           />
@@ -533,10 +540,16 @@ function PasswordForm({
           hint="Najmanje 8 karaktera, jedno veliko slovo i jedan broj."
         >
           <PasswordInput
+            id="new_password"
+            name="new_password"
             value={newPassword}
-            onChange={
-              setNewPassword
+            onChange={(event) =>
+              setNewPassword(
+                event.target.value,
+              )
             }
+            required
+            disabled={loading}
             autoComplete="new-password"
             placeholder="Unesi novu lozinku"
           />
@@ -544,12 +557,18 @@ function PasswordForm({
 
         <FormField label="Potvrdi lozinku">
           <PasswordInput
+            id="confirm_password"
+            name="confirm_password"
             value={
               confirmPassword
             }
-            onChange={
-              setConfirmPassword
+            onChange={(event) =>
+              setConfirmPassword(
+                event.target.value,
+              )
             }
+            required
+            disabled={loading}
             autoComplete="new-password"
             placeholder="Ponovi novu lozinku"
           />

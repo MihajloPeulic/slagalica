@@ -1,1 +1,2 @@
-Napravi da u matematici plavi dobije 5 ako nije tacno ali je blizi broju od crvenog
+Crvenom ne krene dobro partija vec zabode na vs ekranu i nije syncovan.
+Takodje potrebno je da ako se desi da neko izadje tacno prije runde da ne moze naknadno da se to izgubljeno vreme doda na igru ako je vrijeme preostalo za igru vec maximalno. Znaci ako rec runda traje 60 sekundi, i neko prije nje izadje na 8 sekundi, ne moze da onda traje ta runda 68, nego idalje 60.

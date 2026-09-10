@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Link2, Sparkles, Clock } from "lucide-react";
+import { Link2 } from "lucide-react";
+
+import { RoundIntermission } from "@/game_components/RoundIntermission";
 
 interface PairItem {
     id: number;
@@ -18,8 +20,16 @@ interface RoundData {
 
 interface SpojniceProps {
     myRole: "blue" | "red";
+    syncEpoch?: number;
+    preferPeerSync?: boolean;
+    isPaused?: boolean;
+    pauseVersion?: number;
+    resumeShiftMs?: number;
+    onPeerSyncComplete?: () => void;
     round: number; // 1 ili 2
     data: RoundData;
+    initialState?: any;
+    onPersistState?: (event: "state_sync" | "pair_attempt" | "round_result", state: Record<string, unknown>) => void;
     sendBroadcast: (payload: any) => void;
     incomingBroadcast?: any;
     onScoreSubmit: (bluePoints: number, redPoints: number) => void;
@@ -29,16 +39,24 @@ interface SpojniceProps {
 
 export function Spojnice({
     myRole,
+    syncEpoch = 0,
+    preferPeerSync = false,
+    isPaused = false,
+    pauseVersion = 0,
+    resumeShiftMs = 0,
+    onPeerSyncComplete,
     round,
     data,
+    initialState,
+    onPersistState,
     sendBroadcast,
     incomingBroadcast,
     onScoreSubmit,
     onNextRound,
-    onTimerTick
+    onTimerTick,
 }: SpojniceProps) {
     const [phase, setPhase] = useState<"countdown" | "playing" | "intermission">("countdown");
-    
+
     // Timestampovi su source of truth za sve tajmere.
     const [turnExpiresAt, setTurnExpiresAt] = useState(() => Date.now() + 15 * 1000);
     const [transitionExpiresAt, setTransitionExpiresAt] = useState(0);
@@ -58,11 +76,17 @@ export function Spojnice({
     const prevBlueRef = useRef(0);
     const prevRedRef = useRef(0);
     const hasReceivedSyncRef = useRef(false);
+    const syncRequestIdRef = useRef<string | null>(null);
+    const syncRetryTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+    const isSyncReadyRef = useRef(false);
+    const hasPersistedRoundRef = useRef(false);
+    const initializedRoundRef = useRef<number | null>(null);
+    const lastAppliedPauseVersionRef = useRef(pauseVersion);
 
     const leftItems = data?.pairs || [];
     const [rightItems, setRightItems] = useState<PairItem[]>(() => data?.rightItems ?? []);
     const [currentIndex, setCurrentIndex] = useState(0);
-    
+
     const roundStarter = round === 1 ? "blue" : "red";
     const [activePlayer, setActivePlayer] = useState<"blue" | "red">(roundStarter);
 
@@ -73,9 +97,9 @@ export function Spojnice({
     const [isError, setIsError] = useState(false);
 
     const totalItemsCount = leftItems.length;
-    const isGameOver = totalItemsCount > 0 && (matchedPairs.length + missedLeftIds.length) === totalItemsCount;
+    const isGameOver = totalItemsCount > 0 && matchedPairs.length + missedLeftIds.length === totalItemsCount;
 
-    const canPlay = activePlayer === myRole && !isError && phase === "playing" && !isGameOver;
+    const canPlay = !isPaused && activePlayer === myRole && !isError && phase === "playing" && !isGameOver;
 
     // Jedan klijent vodi zajedničke vremenske prelaze da oba igrača ostanu u syncu.
     const isAuthority = myRole === "blue";
@@ -110,9 +134,112 @@ export function Spojnice({
         isError,
     });
 
-    // ================= 1. INICIJALIZACIJA I SYNC REQUEST =================
+    // ================= 1. INICIJALIZACIJA / REDIS RESTORE =================
     useEffect(() => {
         if (!data) return;
+        if (initializedRoundRef.current === round) return;
+
+        initializedRoundRef.current = round;
+        hasReceivedSyncRef.current = false;
+        syncRequestIdRef.current = null;
+        hasPersistedRoundRef.current = false;
+        isSyncReadyRef.current = false;
+
+        if (myRole === "blue" && !preferPeerSync && initialState && initialState.completed !== true) {
+            const restoredRightItems =
+                Array.isArray(initialState.rightItems) && initialState.rightItems.length > 0
+                    ? initialState.rightItems
+                    : data.rightItems || [];
+
+            const restoredBlue = typeof initialState.blueScore === "number" ? initialState.blueScore : 0;
+
+            const restoredRed = typeof initialState.redScore === "number" ? initialState.redScore : 0;
+
+            setRightItems(restoredRightItems);
+            setCurrentIndex(typeof initialState.currentIndex === "number" ? initialState.currentIndex : 0);
+            setMatchedPairs(Array.isArray(initialState.matchedPairs) ? initialState.matchedPairs : []);
+            setMissedLeftIds(Array.isArray(initialState.missedLeftIds) ? initialState.missedLeftIds : []);
+            setAttemptCount(typeof initialState.attemptCount === "number" ? initialState.attemptCount : 0);
+            setSelectedRight(initialState.selectedRight ?? null);
+            setIsError(!!initialState.isError);
+
+            setCountdownExpiresAt(
+                typeof initialState.countdownExpiresAt === "number" ? initialState.countdownExpiresAt : 0
+            );
+            setTurnExpiresAt(typeof initialState.turnExpiresAt === "number" ? initialState.turnExpiresAt : 0);
+            setTransitionExpiresAt(
+                typeof initialState.transitionExpiresAt === "number" ? initialState.transitionExpiresAt : 0
+            );
+            setIntermissionExpiresAt(
+                typeof initialState.intermissionExpiresAt === "number" ? initialState.intermissionExpiresAt : 0
+            );
+
+            setActivePlayer(
+                initialState.activePlayer === "red"
+                    ? "red"
+                    : initialState.activePlayer === "blue"
+                      ? "blue"
+                      : round === 1
+                        ? "blue"
+                        : "red"
+            );
+
+            setBlueScore(restoredBlue);
+            setRedScore(restoredRed);
+            prevBlueRef.current = restoredBlue;
+            prevRedRef.current = restoredRed;
+
+            const restoredPhase =
+                initialState.phase === "playing" || initialState.phase === "intermission"
+                    ? initialState.phase
+                    : "countdown";
+
+            setPhase(restoredPhase);
+
+            /*
+                Bitno za refresh race:
+                state setteri se primijene tek na narednom renderu, zato
+                canonical snapshot odmah upisujemo i u ref prije nego što
+                BLUE počne odgovarati na RED sync requestove.
+            */
+            gameSnapshot.current = {
+                phase: restoredPhase,
+                turnExpiresAt: typeof initialState.turnExpiresAt === "number" ? initialState.turnExpiresAt : 0,
+                transitionExpiresAt:
+                    typeof initialState.transitionExpiresAt === "number" ? initialState.transitionExpiresAt : 0,
+                countdownExpiresAt:
+                    typeof initialState.countdownExpiresAt === "number" ? initialState.countdownExpiresAt : 0,
+                intermissionExpiresAt:
+                    typeof initialState.intermissionExpiresAt === "number" ? initialState.intermissionExpiresAt : 0,
+                blueScore: restoredBlue,
+                redScore: restoredRed,
+                rightItems: restoredRightItems,
+                currentIndex: typeof initialState.currentIndex === "number" ? initialState.currentIndex : 0,
+                activePlayer:
+                    initialState.activePlayer === "red"
+                        ? "red"
+                        : initialState.activePlayer === "blue"
+                          ? "blue"
+                          : round === 1
+                            ? "blue"
+                            : "red",
+                selectedRight: initialState.selectedRight ?? null,
+                matchedPairs: Array.isArray(initialState.matchedPairs) ? initialState.matchedPairs : [],
+                missedLeftIds: Array.isArray(initialState.missedLeftIds) ? initialState.missedLeftIds : [],
+                attemptCount: typeof initialState.attemptCount === "number" ? initialState.attemptCount : 0,
+                isError: !!initialState.isError,
+            };
+
+            isSyncReadyRef.current = true;
+            return;
+        }
+
+        if (myRole === "red" || (myRole === "blue" && preferPeerSync)) {
+            return;
+        }
+
+        const now = Date.now();
+        const initialCountdownExpiresAt = now + 5 * 1000;
 
         setRightItems(data.rightItems || []);
         setCurrentIndex(0);
@@ -122,8 +249,7 @@ export function Spojnice({
         setSelectedRight(null);
         setIsError(false);
 
-        const now = Date.now();
-        setCountdownExpiresAt(now + 5 * 1000);
+        setCountdownExpiresAt(initialCountdownExpiresAt);
         setTurnExpiresAt(0);
         setTransitionExpiresAt(0);
         setIntermissionExpiresAt(0);
@@ -133,21 +259,116 @@ export function Spojnice({
         setTransitionTimer(3);
         setIntermissionTimeLeft(10);
 
-        setActivePlayer(round === 1 ? "blue" : "red");
+        const starter = round === 1 ? "blue" : "red";
+
+        setActivePlayer(starter);
         setBlueScore(0);
         setRedScore(0);
         prevBlueRef.current = 0;
         prevRedRef.current = 0;
         setPhase("countdown");
 
-        hasReceivedSyncRef.current = false;
+        if (myRole === "blue") {
+            /*
+                Fresh BLUE je odmah canonical.
+                Ref punimo sinhrono da eventualni rani RED request
+                ne dobije snapshot iz prethodnog rendera.
+            */
+            gameSnapshot.current = {
+                phase: "countdown",
+                turnExpiresAt: 0,
+                transitionExpiresAt: 0,
+                countdownExpiresAt: initialCountdownExpiresAt,
+                intermissionExpiresAt: 0,
+                blueScore: 0,
+                redScore: 0,
+                rightItems: data.rightItems || [],
+                currentIndex: 0,
+                activePlayer: starter,
+                selectedRight: null,
+                matchedPairs: [],
+                missedLeftIds: [],
+                attemptCount: 0,
+                isError: false,
+            };
+
+            isSyncReadyRef.current = true;
+
+            onPersistState?.("state_sync", {
+                completed: false,
+                phase: "countdown",
+                turnExpiresAt: 0,
+                transitionExpiresAt: 0,
+                countdownExpiresAt: initialCountdownExpiresAt,
+                intermissionExpiresAt: 0,
+                blueScore: 0,
+                redScore: 0,
+                rightItems: data.rightItems || [],
+                currentIndex: 0,
+                activePlayer: starter,
+                selectedRight: null,
+                matchedPairs: [],
+                missedLeftIds: [],
+                attemptCount: 0,
+                isError: false,
+            });
+        }
+    }, [data, round, myRole, initialState]);
+
+    function clearSyncRetryTimers() {
+        syncRetryTimersRef.current.forEach((timer) => clearTimeout(timer));
+        syncRetryTimersRef.current = [];
+    }
+
+    function sendInitialSyncRequest() {
+        const shouldRequest = myRole === "red" || (myRole === "blue" && preferPeerSync);
+
+        if (!shouldRequest || hasReceivedSyncRef.current) return;
+
+        if (!syncRequestIdRef.current) {
+            syncRequestIdRef.current = `${Date.now()}-${myRole}-${round}-${syncEpoch}-${Math.random().toString(36).slice(2)}`;
+        }
 
         sendBroadcast({
             type: "SPOJNICE_SYNC_REQUEST",
             role: myRole,
-            round
+            round,
+            requestId: syncRequestIdRef.current,
         });
-    }, [data, round]);
+    }
+
+    /*
+        RED traži canonical mini-game state od BLUE-a.
+        Ako prvi request ode prerano, pokušava opet.
+    */
+    useEffect(() => {
+        clearSyncRetryTimers();
+        hasReceivedSyncRef.current = false;
+
+        if (!(myRole === "red" || (myRole === "blue" && preferPeerSync))) {
+            return;
+        }
+
+        sendInitialSyncRequest();
+
+        const retry500 = setTimeout(sendInitialSyncRequest, 500);
+
+        const retry1500 = setTimeout(sendInitialSyncRequest, 1_500);
+
+        const retry3000 = setTimeout(sendInitialSyncRequest, 3_000);
+
+        const retry5000 = setTimeout(sendInitialSyncRequest, 5_000);
+
+        const retry8000 = setTimeout(sendInitialSyncRequest, 8_000);
+
+        syncRetryTimersRef.current = [retry500, retry1500, retry3000, retry5000, retry8000];
+
+        return () => {
+            clearSyncRetryTimers();
+            hasReceivedSyncRef.current = false;
+            syncRequestIdRef.current = null;
+        };
+    }, [myRole, round, syncEpoch, preferPeerSync]);
 
     useEffect(() => {
         gameSnapshot.current = {
@@ -196,22 +417,21 @@ export function Spojnice({
         if (incomingBroadcast.type === "SPOJNICE_PICK") {
             if (!isAuthority) return;
 
-            processPick(
-                incomingBroadcast.itemId,
-                incomingBroadcast.role,
-                incomingBroadcast.currentIndex
-            );
+            processPick(incomingBroadcast.itemId, incomingBroadcast.role, incomingBroadcast.currentIndex);
 
             return;
         }
 
         if (incomingBroadcast.type === "SPOJNICE_SYNC_REQUEST") {
+            if (incomingBroadcast.role === myRole || !isSyncReadyRef.current) return;
+
             const snapshot = gameSnapshot.current;
 
             sendBroadcast({
                 type: "SPOJNICE_SYNC",
                 role: myRole,
                 round,
+                requestId: incomingBroadcast.requestId,
                 matchedPairs: snapshot.matchedPairs,
                 missedLeftIds: snapshot.missedLeftIds,
                 currentIndex: snapshot.currentIndex,
@@ -235,8 +455,30 @@ export function Spojnice({
 
         if (incomingBroadcast.type === "SPOJNICE_SYNC") {
             if (incomingBroadcast.isRefreshSync) {
+                if (
+                    typeof incomingBroadcast.requestId !== "string" ||
+                    incomingBroadcast.requestId !== syncRequestIdRef.current
+                ) {
+                    return;
+                }
+
+                const shouldAcceptPeerSync = myRole === "red" || (myRole === "blue" && preferPeerSync);
+
+                if (!shouldAcceptPeerSync || incomingBroadcast.role === myRole) return;
+
                 if (hasReceivedSyncRef.current) return;
                 hasReceivedSyncRef.current = true;
+                syncRequestIdRef.current = null;
+                clearSyncRetryTimers();
+                isSyncReadyRef.current = true;
+
+                /*
+                    I RED i BLUE moraju obavijestiti parent da je
+                    mini-game peer recovery završen. Ranije je Spojnice
+                    to radila samo za BLUE, pa RED reconnect mogao ostati
+                    frozen do parent fallback timeouta.
+                */
+                onPeerSyncComplete?.();
             }
 
             if (incomingBroadcast.matchedPairs) setMatchedPairs(incomingBroadcast.matchedPairs);
@@ -247,21 +489,13 @@ export function Spojnice({
             if (incomingBroadcast.selectedRight !== undefined) setSelectedRight(incomingBroadcast.selectedRight);
             if (incomingBroadcast.isError !== undefined) setIsError(incomingBroadcast.isError);
             if (incomingBroadcast.phase) setPhase(incomingBroadcast.phase);
-            if (
-                Array.isArray(incomingBroadcast.rightItems) &&
-                incomingBroadcast.rightItems.length > 0
-            ) {
+            if (Array.isArray(incomingBroadcast.rightItems) && incomingBroadcast.rightItems.length > 0) {
                 setRightItems(incomingBroadcast.rightItems);
             }
 
-            if (
-                incomingBroadcast.blueScore !== undefined ||
-                incomingBroadcast.redScore !== undefined
-            ) {
-                const nextBlue =
-                    incomingBroadcast.blueScore ?? blueScore;
-                const nextRed =
-                    incomingBroadcast.redScore ?? redScore;
+            if (incomingBroadcast.blueScore !== undefined || incomingBroadcast.redScore !== undefined) {
+                const nextBlue = incomingBroadcast.blueScore ?? blueScore;
+                const nextRed = incomingBroadcast.redScore ?? redScore;
 
                 setBlueScore(nextBlue);
                 setRedScore(nextRed);
@@ -295,14 +529,9 @@ export function Spojnice({
             setMatchedPairs(incomingBroadcast.matchedPairs);
             setMissedLeftIds(incomingBroadcast.missedLeftIds);
 
-            if (
-                incomingBroadcast.blueScore !== undefined ||
-                incomingBroadcast.redScore !== undefined
-            ) {
-                const nextBlue =
-                    incomingBroadcast.blueScore ?? blueScore;
-                const nextRed =
-                    incomingBroadcast.redScore ?? redScore;
+            if (incomingBroadcast.blueScore !== undefined || incomingBroadcast.redScore !== undefined) {
+                const nextBlue = incomingBroadcast.blueScore ?? blueScore;
+                const nextRed = incomingBroadcast.redScore ?? redScore;
 
                 setBlueScore(nextBlue);
                 setRedScore(nextRed);
@@ -331,7 +560,34 @@ export function Spojnice({
         matchedPairs,
         missedLeftIds,
         attemptCount,
+        preferPeerSync,
     ]);
+
+    function persistState(event: "state_sync" | "pair_attempt" | "round_result", extra: Record<string, unknown> = {}) {
+        if (!isAuthority) return;
+
+        const snapshot = gameSnapshot.current;
+
+        onPersistState?.(event, {
+            completed: event === "round_result",
+            phase: snapshot.phase,
+            turnExpiresAt: snapshot.turnExpiresAt,
+            transitionExpiresAt: snapshot.transitionExpiresAt,
+            countdownExpiresAt: snapshot.countdownExpiresAt,
+            intermissionExpiresAt: snapshot.intermissionExpiresAt,
+            blueScore: snapshot.blueScore,
+            redScore: snapshot.redScore,
+            rightItems: snapshot.rightItems,
+            currentIndex: snapshot.currentIndex,
+            activePlayer: snapshot.activePlayer,
+            selectedRight: snapshot.selectedRight,
+            matchedPairs: snapshot.matchedPairs,
+            missedLeftIds: snapshot.missedLeftIds,
+            attemptCount: snapshot.attemptCount,
+            isError: snapshot.isError,
+            ...extra,
+        });
+    }
 
     function broadcastState(extra: any = {}) {
         const snapshot = gameSnapshot.current;
@@ -355,19 +611,76 @@ export function Spojnice({
             transitionExpiresAt: snapshot.transitionExpiresAt,
             countdownExpiresAt: snapshot.countdownExpiresAt,
             intermissionExpiresAt: snapshot.intermissionExpiresAt,
-            ...extra
+            ...extra,
         });
     }
 
+    useEffect(() => {
+        if (pauseVersion <= lastAppliedPauseVersionRef.current) return;
+        lastAppliedPauseVersionRef.current = pauseVersion;
+        if (!Number.isFinite(resumeShiftMs) || resumeShiftMs <= 0) return;
+
+        const snapshot = gameSnapshot.current;
+        const resumeNow = Date.now();
+        const pauseStartedAt = resumeNow - resumeShiftMs;
+
+        const shiftActiveDeadline = (value: number, maxDurationMs: number) => {
+            if (value <= 0 || value <= pauseStartedAt) {
+                return value;
+            }
+
+            /*
+                Timer koji je već postojao na početku pauze može imati
+                najviše maxDurationMs preostalog vremena. Ako je razlika
+                veća od maksimuma, timer je kreiran tokom/poslije pauze
+                (npr. nova runda) i staru pauzu NE dodajemo na njega.
+            */
+            const remainingWhenPauseStarted = value - pauseStartedAt;
+
+            if (remainingWhenPauseStarted > maxDurationMs + 250) {
+                return value;
+            }
+
+            return Math.min(value + resumeShiftMs, resumeNow + maxDurationMs);
+        };
+
+        const next = {
+            ...snapshot,
+            turnExpiresAt: snapshot.turnExpiresAt,
+            transitionExpiresAt: snapshot.transitionExpiresAt,
+            countdownExpiresAt: snapshot.countdownExpiresAt,
+            intermissionExpiresAt: snapshot.intermissionExpiresAt,
+        };
+
+        if (snapshot.phase === "countdown") {
+            next.countdownExpiresAt = shiftActiveDeadline(snapshot.countdownExpiresAt, 5_000);
+        } else if (snapshot.phase === "playing") {
+            if (snapshot.isError) {
+                next.transitionExpiresAt = shiftActiveDeadline(snapshot.transitionExpiresAt, 3_000);
+            } else {
+                next.turnExpiresAt = shiftActiveDeadline(snapshot.turnExpiresAt, 15_000);
+            }
+        } else if (snapshot.phase === "intermission") {
+            next.intermissionExpiresAt = shiftActiveDeadline(snapshot.intermissionExpiresAt, 10_000);
+        }
+
+        setTurnExpiresAt(next.turnExpiresAt);
+        setTransitionExpiresAt(next.transitionExpiresAt);
+        setCountdownExpiresAt(next.countdownExpiresAt);
+        setIntermissionExpiresAt(next.intermissionExpiresAt);
+        gameSnapshot.current = next;
+
+        if (myRole === "blue" && isSyncReadyRef.current) {
+            onPersistState?.("state_sync", { completed: false, ...next });
+        }
+    }, [pauseVersion, resumeShiftMs, myRole]);
+
     // ================= 3. TAJMER PRIPREME (5s COUNTDOWN) =================
     useEffect(() => {
-        if (phase !== "countdown") return;
+        if (phase !== "countdown" || isPaused) return;
 
         const tick = () => {
-            const remaining = Math.max(
-                0,
-                Math.ceil((countdownExpiresAt - Date.now()) / 1000)
-            );
+            const remaining = Math.max(0, Math.ceil((countdownExpiresAt - Date.now()) / 1000));
 
             setCountdownTimer(remaining);
             onTimerTick(remaining);
@@ -381,6 +694,13 @@ export function Spojnice({
                     setTurnExpiresAt(newTurnExpiresAt);
 
                     broadcastState({
+                        phase: "playing",
+                        turnExpiresAt: newTurnExpiresAt,
+                        transitionExpiresAt: 0,
+                        isError: false,
+                    });
+
+                    persistState("state_sync", {
                         phase: "playing",
                         turnExpiresAt: newTurnExpiresAt,
                         transitionExpiresAt: 0,
@@ -401,11 +721,11 @@ export function Spojnice({
         }, 250);
 
         return () => clearInterval(timer);
-    }, [phase, countdownExpiresAt, isAuthority]);
+    }, [phase, countdownExpiresAt, isAuthority, isPaused]);
 
     // Kada se igra završi, prelazi se u intermisiju
     useEffect(() => {
-        if (isGameOver && phase === "playing" && isAuthority) {
+        if (!isPaused && isGameOver && phase === "playing" && isAuthority) {
             const newIntermissionExpiresAt = Date.now() + 10 * 1000;
 
             setPhase("intermission");
@@ -420,21 +740,32 @@ export function Spojnice({
                 missedLeftIds,
                 blueScore,
                 redScore,
-                intermissionExpiresAt: newIntermissionExpiresAt
+                intermissionExpiresAt: newIntermissionExpiresAt,
             });
+
+            if (!hasPersistedRoundRef.current) {
+                hasPersistedRoundRef.current = true;
+
+                persistState("round_result", {
+                    completed: true,
+                    phase: "intermission",
+                    intermissionExpiresAt: newIntermissionExpiresAt,
+                    matchedPairs,
+                    missedLeftIds,
+                    blueScore,
+                    redScore,
+                });
+            }
         }
-    }, [isGameOver, phase, round, blueScore, redScore, matchedPairs, missedLeftIds]);
+    }, [isGameOver, phase, round, blueScore, redScore, matchedPairs, missedLeftIds, isPaused]);
 
     // ================= 4. TAJMER TOKA IGRE (PLAYING) =================
     useEffect(() => {
-        if (isGameOver || phase !== "playing") return;
+        if (isPaused || isGameOver || phase !== "playing") return;
 
         const tick = () => {
             if (isError) {
-                const remaining = Math.max(
-                    0,
-                    Math.ceil((transitionExpiresAt - Date.now()) / 1000)
-                );
+                const remaining = Math.max(0, Math.ceil((transitionExpiresAt - Date.now()) / 1000));
 
                 setTransitionTimer(remaining);
                 onTimerTick(remaining);
@@ -447,10 +778,7 @@ export function Spojnice({
                 return false;
             }
 
-            const remaining = Math.max(
-                0,
-                Math.ceil((turnExpiresAt - Date.now()) / 1000)
-            );
+            const remaining = Math.max(0, Math.ceil((turnExpiresAt - Date.now()) / 1000));
 
             setTimeLeft(remaining);
             onTimerTick(remaining);
@@ -464,7 +792,12 @@ export function Spojnice({
 
                 broadcastState({
                     isError: true,
-                    transitionExpiresAt: newTransitionExpiresAt
+                    transitionExpiresAt: newTransitionExpiresAt,
+                });
+
+                persistState("state_sync", {
+                    isError: true,
+                    transitionExpiresAt: newTransitionExpiresAt,
                 });
 
                 return true;
@@ -480,27 +813,15 @@ export function Spojnice({
         }, 250);
 
         return () => clearInterval(timer);
-    }, [
-        turnExpiresAt,
-        transitionExpiresAt,
-        isGameOver,
-        isError,
-        phase,
-        myRole,
-        activePlayer,
-        isAuthority
-    ]);
+    }, [turnExpiresAt, transitionExpiresAt, isGameOver, isError, phase, myRole, activePlayer, isAuthority, isPaused]);
 
     // ================= 5. TAJMER INTERMISIJE (10s) =================
     useEffect(() => {
-        if (phase !== "intermission") return;
+        if (phase !== "intermission" || isPaused) return;
         if (intermissionExpiresAt <= 0) return;
 
         const tick = () => {
-            const remaining = Math.max(
-                0,
-                Math.ceil((intermissionExpiresAt - Date.now()) / 1000)
-            );
+            const remaining = Math.max(0, Math.ceil((intermissionExpiresAt - Date.now()) / 1000));
 
             setIntermissionTimeLeft(remaining);
             onTimerTick(remaining);
@@ -538,10 +859,10 @@ export function Spojnice({
         }, 250);
 
         return () => clearInterval(timer);
-    }, [phase, intermissionExpiresAt, isAuthority]);
+    }, [phase, intermissionExpiresAt, isAuthority, isPaused]);
 
     function executeTurnSwitch() {
-        if (!isAuthority) return;
+        if (!isAuthority || isPaused) return;
 
         if (attemptCount === 0) {
             // Prvi igrač nije pogodio: drugi dobija svoj pokušaj.
@@ -565,25 +886,26 @@ export function Spojnice({
                 transitionExpiresAt: 0,
                 turnExpiresAt: newTurnExpiresAt,
             });
+
+            persistState("state_sync", {
+                activePlayer: nextPlayer,
+                attemptCount: nextAttempt,
+                selectedRight: null,
+                isError: false,
+                transitionExpiresAt: 0,
+                turnExpiresAt: newTurnExpiresAt,
+            });
         } else {
             // Oba igrača su promašila isti par: nema minusa, samo prelazimo dalje.
             const currentLeftItem = leftItems[currentIndex];
 
             if (!currentLeftItem) return;
 
-            const updatedMissed = [
-                ...missedLeftIds,
-                currentLeftItem.id
-            ];
+            const updatedMissed = [...missedLeftIds, currentLeftItem.id];
 
             setMissedLeftIds(updatedMissed);
 
-            proceedToNextRow(
-                updatedMissed,
-                matchedPairs,
-                blueScore,
-                redScore
-            );
+            proceedToNextRow(updatedMissed, matchedPairs, blueScore, redScore);
         }
     }
 
@@ -591,7 +913,8 @@ export function Spojnice({
         updatedMissed: number[],
         updatedMatched: { id: number; player: "blue" | "red" }[],
         currBlue: number,
-        currRed: number
+        currRed: number,
+        persistEvent: "state_sync" | "pair_attempt" = "state_sync"
     ) {
         const nextIndex = currentIndex + 1;
 
@@ -602,6 +925,16 @@ export function Spojnice({
             setTransitionExpiresAt(0);
 
             broadcastState({
+                matchedPairs: updatedMatched,
+                missedLeftIds: updatedMissed,
+                selectedRight: null,
+                isError: false,
+                transitionExpiresAt: 0,
+                blueScore: currBlue,
+                redScore: currRed,
+            });
+
+            persistState(persistEvent, {
                 matchedPairs: updatedMatched,
                 missedLeftIds: updatedMissed,
                 selectedRight: null,
@@ -637,7 +970,21 @@ export function Spojnice({
             turnExpiresAt: newTurnExpiresAt,
             transitionExpiresAt: 0,
             blueScore: currBlue,
-            redScore: currRed
+            redScore: currRed,
+        });
+
+        persistState(persistEvent, {
+            matchedPairs: updatedMatched,
+            missedLeftIds: updatedMissed,
+            currentIndex: nextIndex,
+            activePlayer: nextPlayer,
+            attemptCount: 0,
+            selectedRight: null,
+            isError: false,
+            turnExpiresAt: newTurnExpiresAt,
+            transitionExpiresAt: 0,
+            blueScore: currBlue,
+            redScore: currRed,
         });
     }
 
@@ -658,21 +1005,17 @@ export function Spojnice({
         }
     }
 
-    function processPick(
-        itemId: number,
-        player: "blue" | "red",
-        pickIndex: number
-    ) {
+    function processPick(itemId: number, player: "blue" | "red", pickIndex: number) {
         if (!isAuthority) return;
         if (phase !== "playing" || isError || isGameOver) return;
         if (player !== activePlayer) return;
         if (pickIndex !== currentIndex) return;
 
         const currentLeftItem = leftItems[currentIndex];
-        const item = rightItems.find(right => right.id === itemId);
+        const item = rightItems.find((right) => right.id === itemId);
 
         if (!currentLeftItem || !item) return;
-        if (matchedPairs.some(match => match.id === item.id)) return;
+        if (matchedPairs.some((match) => match.id === item.id)) return;
 
         setSelectedRight(item);
 
@@ -693,7 +1036,7 @@ export function Spojnice({
                 {
                     id: currentLeftItem.id,
                     player: activePlayer,
-                }
+                },
             ];
 
             setBlueScore(currBlue);
@@ -701,39 +1044,67 @@ export function Spojnice({
             setMatchedPairs(nextMatched);
             updateHeaderDelta(currBlue, currRed);
 
-            proceedToNextRow(
-                missedLeftIds,
-                nextMatched,
-                currBlue,
-                currRed
-            );
+            proceedToNextRow(missedLeftIds, nextMatched, currBlue, currRed, "pair_attempt");
         } else {
-            const newTransitionExpiresAt =
-                Date.now() + 3 * 1000;
+            const newTransitionExpiresAt = Date.now() + 3 * 1000;
 
             setIsError(true);
             setTransitionTimer(3);
-            setTransitionExpiresAt(
-                newTransitionExpiresAt
-            );
+            setTransitionExpiresAt(newTransitionExpiresAt);
 
             broadcastState({
                 selectedRight: item,
                 isError: true,
-                transitionExpiresAt: newTransitionExpiresAt
+                transitionExpiresAt: newTransitionExpiresAt,
+            });
+
+            persistState("pair_attempt", {
+                selectedRight: item,
+                isError: true,
+                transitionExpiresAt: newTransitionExpiresAt,
             });
         }
     }
 
-    const displayedRightItems = phase === "intermission"
-        ? leftItems.map(left => data.pairs.find(p => p.id === left.id) || left)
-        : rightItems.length > 0
-          ? rightItems
-          : data?.rightItems ?? [];
+    const displayedRightItems =
+        phase === "intermission"
+            ? leftItems.map((left) => data.pairs.find((p) => p.id === left.id) || left)
+            : rightItems.length > 0
+              ? rightItems
+              : (data?.rightItems ?? []);
 
     return (
         <div className="flex w-full max-w-sm flex-col items-center justify-center gap-4">
-            {phase === "playing" || phase === "intermission" || phase === "countdown" ? (
+            {phase === "intermission" ? (
+                <RoundIntermission
+                    gameTitle="Spojnice"
+                    round={round}
+                    bluePoints={blueScore}
+                    redPoints={redScore}
+                    timeLeft={intermissionTimeLeft}
+                    nextLabel={round === 1 ? "Sledeća runda za" : "Sledeća igra za"}
+                    topContent={
+                        <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2">
+                            <p className="text-[9px] font-black uppercase tracking-wide text-text-muted">Tema</p>
+                            <p className="mt-1 text-sm font-black text-primary">{data.tema}</p>
+                        </div>
+                    }
+                    bottomContent={
+                        <div className="grid grid-cols-2 gap-1.5">
+                            {data.pairs.map((pair) => (
+                                <div
+                                    key={pair.id}
+                                    className="rounded-lg border border-border bg-background px-2 py-1.5 text-left text-[10px] leading-tight text-text-secondary"
+                                >
+                                    <span className="font-black text-text">{pair.left}</span>
+                                    <span className="mx-1 text-text-muted">→</span>
+                                    <span>{pair.right}</span>
+                                </div>
+                            ))}
+                        </div>
+                    }
+                />
+            ) : phase === "playing" || phase === "countdown" ? (
                 <>
                     {/* HEADER */}
                     <div className="flex w-full flex-col items-center text-center">
@@ -742,9 +1113,7 @@ export function Spojnice({
                             Spojnice · Runda {round}
                         </p>
 
-                        <h2 className="section-title mt-1">
-                            {data.tema}
-                        </h2>
+                        <h2 className="section-title mt-1">{data.tema}</h2>
 
                         <div className="mt-3">
                             <span
@@ -761,23 +1130,19 @@ export function Spojnice({
                                     ${
                                         isError
                                             ? "border-red-500/30 bg-red-500/10 text-red-400"
-                                            : phase === "intermission"
+                                            : phase === "countdown"
                                               ? "border-primary/30 bg-primary/10 text-primary"
-                                              : phase === "countdown"
-                                                ? "border-primary/30 bg-primary/10 text-primary"
-                                                : activePlayer === "blue"
-                                                  ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
-                                                  : "border-red-500/30 bg-red-500/10 text-red-400"
+                                              : activePlayer === "blue"
+                                                ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
+                                                : "border-red-500/30 bg-red-500/10 text-red-400"
                                     }
                                 `}
                             >
                                 {isError
                                     ? `Netačno · promjena igrača za ${transitionTimer}s`
-                                    : phase === "intermission"
-                                      ? `Pregled rješenja · ${intermissionTimeLeft}s`
-                                      : phase === "countdown"
-                                        ? `Početak za ${countdownTimer}s`
-                                        : `Na potezu: ${activePlayer === "blue" ? "Plavi" : "Crveni"}`}
+                                    : phase === "countdown"
+                                      ? `Početak za ${countdownTimer}s`
+                                      : `Na potezu: ${activePlayer === "blue" ? "Plavi" : "Crveni"}`}
                             </span>
                         </div>
                     </div>
@@ -793,50 +1158,34 @@ export function Spojnice({
                             ${
                                 phase === "countdown"
                                     ? "pointer-events-none opacity-45 grayscale-[0.55] saturate-50"
-                                    : phase === "intermission"
-                                      ? "pointer-events-none opacity-65 grayscale-[0.35] saturate-75"
-                                      : !canPlay
-                                        ? "opacity-75"
-                                        : ""
+                                    : !canPlay
+                                      ? "opacity-75"
+                                      : ""
                             }
                         `}
                     >
                         {/* LEFT COLUMN */}
                         <div className="flex min-w-0 flex-col gap-2">
-                            <p className="secondary-text text-center">
-                                Pojmovi
-                            </p>
+                            <p className="secondary-text text-center">Pojmovi</p>
 
                             {leftItems.map((item, idx) => {
-                                const matched = matchedPairs.find(
-                                    m => m.id === item.id
-                                );
+                                const matched = matchedPairs.find((m) => m.id === item.id);
 
-                                const isMissed =
-                                    missedLeftIds.includes(item.id);
+                                const isMissed = missedLeftIds.includes(item.id);
 
-                                const isActive =
-                                    idx === currentIndex &&
-                                    phase === "playing";
+                                const isActive = idx === currentIndex && phase === "playing";
 
-                                let btnStyle =
-                                    "border-border bg-surface text-text-muted opacity-40";
+                                let btnStyle = "border-border bg-surface text-text-muted opacity-40";
 
                                 if (matched) {
                                     btnStyle =
                                         matched.player === "blue"
-                                            ? phase === "intermission"
-                                                ? "border-blue-500/25 bg-blue-500/5 text-blue-400/80"
-                                                : "border-blue-500/30 bg-blue-500/10 text-blue-400"
-                                            : phase === "intermission"
-                                              ? "border-red-500/25 bg-red-500/5 text-red-400/80"
-                                              : "border-red-500/30 bg-red-500/10 text-red-400";
+                                            ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
+                                            : "border-red-500/30 bg-red-500/10 text-red-400";
                                 } else if (isMissed) {
-                                    btnStyle =
-                                        "border-border bg-surface text-text-muted opacity-30 line-through";
+                                    btnStyle = "border-border bg-surface text-text-muted opacity-30 line-through";
                                 } else if (isActive) {
-                                    btnStyle =
-                                        "border-primary bg-primary/10 text-primary";
+                                    btnStyle = "border-primary bg-primary/10 text-primary";
                                 }
 
                                 return (
@@ -859,9 +1208,7 @@ export function Spojnice({
                                             ${btnStyle}
                                         `}
                                     >
-                                        <span className="truncate">
-                                            {item.left}
-                                        </span>
+                                        <span className="truncate">{item.left}</span>
                                     </div>
                                 );
                             })}
@@ -869,49 +1216,30 @@ export function Spojnice({
 
                         {/* RIGHT COLUMN */}
                         <div className="flex min-w-0 flex-col gap-2">
-                            <p className="secondary-text text-center">
-                                Rješenja
-                            </p>
+                            <p className="secondary-text text-center">Rješenja</p>
 
                             {displayedRightItems.map((item) => {
-                                const isMatched =
-                                    matchedPairs.some(
-                                        m => m.id === item.id
-                                    );
+                                const isMatched = matchedPairs.some((m) => m.id === item.id);
 
-                                const isSelected =
-                                    selectedRight?.id === item.id;
+                                const isSelected = selectedRight?.id === item.id;
 
-                                let btnStyle =
-                                    "border-border bg-surface text-text";
+                                let btnStyle = "border-border bg-surface text-text";
 
                                 if (isMatched) {
-                                    const matchInfo =
-                                        matchedPairs.find(
-                                            m => m.id === item.id
-                                        );
+                                    const matchInfo = matchedPairs.find((m) => m.id === item.id);
 
                                     btnStyle =
                                         matchInfo?.player === "blue"
-                                            ? phase === "intermission"
-                                                ? "border-blue-500/25 bg-blue-500/5 text-blue-400/80"
-                                                : "border-blue-500/30 bg-blue-500/10 text-blue-400"
-                                            : phase === "intermission"
-                                              ? "border-red-500/25 bg-red-500/5 text-red-400/80"
-                                              : "border-red-500/30 bg-red-500/10 text-red-400";
+                                            ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
+                                            : "border-red-500/30 bg-red-500/10 text-red-400";
                                 } else if (isSelected && isError) {
-                                    btnStyle =
-                                        "border-primary/50 bg-primary/10 text-primary";
+                                    btnStyle = "border-primary/50 bg-primary/10 text-primary";
                                 } else if (isSelected) {
-                                    btnStyle =
-                                        "border-primary bg-primary/10 text-primary";
+                                    btnStyle = "border-primary bg-primary/10 text-primary";
                                 }
 
                                 return (
-                                    <div
-                                        key={`right-${item.id}`}
-                                        className="relative"
-                                    >
+                                    <div key={`right-${item.id}`} className="relative">
                                         <div
                                             className={`
                                                 flex
@@ -928,41 +1256,25 @@ export function Spojnice({
                                                 font-bold
                                                 leading-tight
                                                 transition-colors
-                                                ${
-                                                    canPlay &&
-                                                    !isMatched &&
-                                                    !isError
-                                                        ? "hover:bg-surface-light"
-                                                        : ""
-                                                }
+                                                ${canPlay && !isMatched && !isError ? "hover:bg-surface-light" : ""}
                                                 ${btnStyle}
                                             `}
                                         >
-                                            <span className="truncate">
-                                                {item.right}
-                                            </span>
+                                            <span className="truncate">{item.right}</span>
                                         </div>
 
                                         <button
                                             type="button"
                                             aria-label={`Odaberi ${item.right}`}
-                                            onClick={() =>
-                                                handleRightClick(item)
-                                            }
-                                            disabled={
-                                                !canPlay ||
-                                                isMatched ||
-                                                isError
-                                            }
+                                            onClick={() => handleRightClick(item)}
+                                            disabled={!canPlay || isMatched || isError}
                                             className={`
                                                 absolute
                                                 inset-0
                                                 rounded-xl
                                                 bg-transparent
                                                 ${
-                                                    canPlay &&
-                                                    !isMatched &&
-                                                    !isError
+                                                    canPlay && !isMatched && !isError
                                                         ? "cursor-pointer"
                                                         : "cursor-default"
                                                 }

@@ -4,41 +4,47 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import { useState } from "react";
 
-interface PasswordInputProps {
-  value: string;
-  onChange: (value: string) => void;
-  autoComplete?:
-    | "current-password"
-    | "new-password";
-  placeholder?: string;
+import {
+  useState,
+  type InputHTMLAttributes,
+} from "react";
+
+interface PasswordInputProps
+  extends Omit<
+    InputHTMLAttributes<HTMLInputElement>,
+    "type"
+  > {
+  wrapperClassName?: string;
 }
 
 export function PasswordInput({
-  value,
-  onChange,
-  autoComplete,
-  placeholder,
+  className = "",
+  wrapperClassName = "",
+  disabled,
+  ...props
 }: PasswordInputProps) {
   const [show, setShow] =
     useState(false);
 
   return (
-    <div className="relative">
+    <div
+      className={`relative ${wrapperClassName}`}
+    >
       <input
-        type={show ? "text" : "password"}
-        value={value}
-        onChange={(e) =>
-          onChange(e.target.value)
+        {...props}
+        type={
+          show
+            ? "text"
+            : "password"
         }
-        autoComplete={autoComplete}
-        placeholder={placeholder}
-        className="input-base pr-11"
+        disabled={disabled}
+        className={`input-base pr-11 ${className}`}
       />
 
       <button
         type="button"
+        disabled={disabled}
         onClick={() =>
           setShow((prev) => !prev)
         }
@@ -62,6 +68,8 @@ export function PasswordInput({
           transition-colors
           hover:bg-surface-light
           hover:text-text
+          disabled:cursor-not-allowed
+          disabled:opacity-50
         "
       >
         {show ? (
