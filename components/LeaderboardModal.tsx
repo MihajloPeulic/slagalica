@@ -105,7 +105,7 @@ function LeaderboardHeader() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-border bg-background px-2 py-1 text-[10px] font-black text-text-muted">
+        <div className="rounded-lg border border-border bg-background px-2 py-1 text-xs font-black text-text-muted">
           XP
         </div>
       </div>
@@ -219,7 +219,7 @@ function LeaderboardRow({
             {user.username}
           </p>
 
-          <p className="mt-0.5 text-[10px] font-semibold text-text-muted">
+          <p className="mt-0.5 text-xs font-semibold text-text-muted">
             #{rank} globalno
           </p>
         </div>
@@ -241,7 +241,7 @@ function LeaderboardRow({
           {user.experience.toLocaleString()}
         </p>
 
-        <p className="text-[10px] font-bold text-text-muted">
+        <p className="text-xs font-bold text-text-muted">
           XP
         </p>
       </div>
@@ -260,11 +260,11 @@ function RankBadge({
 }) {
   const rankStyles =
     rank === 1
-      ? "bg-primary text-black"
+      ? "bg-primary text-white"
       : rank === 2
-        ? "bg-zinc-300/10 text-zinc-300"
+        ? "bg-surface-light text-text-secondary"
         : rank === 3
-          ? "bg-amber-700/15 text-amber-600"
+          ? "bg-orange/10 text-orange"
           : "bg-background text-text-muted";
 
   return (

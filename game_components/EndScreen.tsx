@@ -39,11 +39,11 @@ export function EndScreen({ myRole, result, blueName, redName, onLeave }: EndScr
             {step >= 1 && (
                 <div className="flex w-full animate-in flex-col items-center gap-2 fade-in slide-in-from-top-8 duration-700">
                     {wasDisconnect ? (
-                        <WifiOff className={`mb-2 h-16 w-16 ${isWinner ? "text-emerald-400" : "text-red-400"}`} />
+                        <WifiOff className={`mb-2 h-16 w-16 ${isWinner ? "text-success" : "text-red-player"}`} />
                     ) : (
                         <Trophy
                             className={`mb-2 h-16 w-16 ${
-                                isWinner ? "text-yellow-400" : "text-text-secondary opacity-50"
+                                isWinner ? "text-warning" : "text-text-secondary opacity-50"
                             }`}
                         />
                     )}
@@ -61,15 +61,15 @@ export function EndScreen({ myRole, result, blueName, redName, onLeave }: EndScr
                     )}
 
                     <div className="flex w-full items-center justify-between gap-4">
-                        <div className="flex-1 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 text-center">
-                            <span className="mb-1 block text-[10px] font-bold uppercase text-blue-400">Plavi</span>
+                        <div className="flex-1 rounded-2xl border border-blue-player/30 bg-blue-player/10 p-4 text-center">
+                            <span className="mb-1 block text-[11px] font-bold uppercase text-blue-player">Plavi</span>
                             <span className="block truncate text-sm font-black text-text">{blueName}</span>
                         </div>
 
                         <span className="text-sm font-black text-text-secondary">VS</span>
 
-                        <div className="flex-1 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-center">
-                            <span className="mb-1 block text-[10px] font-bold uppercase text-red-400">Crveni</span>
+                        <div className="flex-1 rounded-2xl border border-red-player/30 bg-red-player/10 p-4 text-center">
+                            <span className="mb-1 block text-[11px] font-bold uppercase text-red-player">Crveni</span>
                             <span className="block truncate text-sm font-black text-text">{redName}</span>
                         </div>
                     </div>
@@ -78,9 +78,9 @@ export function EndScreen({ myRole, result, blueName, redName, onLeave }: EndScr
 
             {step >= 2 && (
                 <div className="mt-4 flex w-full animate-in items-center justify-center gap-6 fade-in zoom-in-50 duration-700">
-                    <div className="text-4xl font-black text-blue-400">{result.blueScore}</div>
+                    <div className="text-4xl font-black text-blue-player">{result.blueScore}</div>
                     <div className="text-lg font-black text-text-secondary/50">:</div>
-                    <div className="text-4xl font-black text-red-400">{result.redScore}</div>
+                    <div className="text-4xl font-black text-red-player">{result.redScore}</div>
                 </div>
             )}
 
@@ -89,23 +89,23 @@ export function EndScreen({ myRole, result, blueName, redName, onLeave }: EndScr
                     <div
                         className={`flex items-center gap-3 rounded-2xl border px-6 py-4 ${
                             myXpChange >= 0
-                                ? "border-emerald-500/40 bg-emerald-500/10"
-                                : "border-red-500/40 bg-red-500/10"
+                                ? "border-success/40 bg-success/10"
+                                : "border-red-player/40 bg-red-player/10"
                         }`}
                     >
                         {myXpChange >= 0 ? (
-                            <Sparkles className="h-6 w-6 text-emerald-400" />
+                            <Sparkles className="h-6 w-6 text-success" />
                         ) : (
-                            <Frown className="h-6 w-6 text-red-400" />
+                            <Frown className="h-6 w-6 text-red-player" />
                         )}
 
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">
+                            <span className="text-[11px] font-bold uppercase tracking-widest text-text-secondary">
                                 Tvoj XP
                             </span>
                             <span
                                 className={`text-xl font-black ${
-                                    myXpChange >= 0 ? "text-emerald-400" : "text-red-400"
+                                    myXpChange >= 0 ? "text-success" : "text-red-player"
                                 }`}
                             >
                                 {myXpChange > 0 ? `+${myXpChange}` : myXpChange} XP

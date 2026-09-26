@@ -39,11 +39,11 @@ export default async function FriendDetailsPage({
     return (
       <div className="flex flex-col min-h-[100dvh] items-center justify-center bg-background px-4">
             <div className="flex max-w-xs flex-col items-center text-center">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-player/10 text-red-player">
                     <ShieldAlert className="h-5 w-5" />
                 </div>
 
-                <p className="card-title text-red-400">
+                <p className="card-title text-red-player">
                     {res.error}
                 </p>
             </div>

@@ -37,7 +37,7 @@ export function Button({
     justify-center
     gap-2
     font-black
-    transition
+    transition duration-200 ease-out hover:-translate-y-0.5
     active:scale-[0.98]
     disabled:pointer-events-none
     disabled:opacity-50
@@ -46,7 +46,7 @@ export function Button({
   const variants = {
     primary: `
       bg-primary
-      text-black
+      text-white
       hover:bg-primary-hover
     `,
 
@@ -68,10 +68,10 @@ export function Button({
 
     danger: `
       border
-      border-red-500/20
-      bg-red-500/10
-      text-red-400
-      hover:bg-red-500/15
+      border-red-player/20
+      bg-red-player/10
+      text-danger
+      hover:bg-red-player/15
     `,
   };
 

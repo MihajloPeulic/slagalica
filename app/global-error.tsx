@@ -16,8 +16,8 @@ export default function GlobalError({
               max-w-md
               rounded-2xl
               border
-              border-[#262626]
-              bg-[#171717]
+              border-border
+              bg-surface
               p-7
               text-center
             "
@@ -33,11 +33,11 @@ export default function GlobalError({
                 justify-center
                 rounded-2xl
                 border
-                border-[#262626]
-                bg-[#212121]
+                border-border
+                bg-surface-light
                 text-3xl
                 font-black
-                text-[#f59e0b]
+                text-primary
               "
             >
               !
@@ -47,7 +47,7 @@ export default function GlobalError({
               Aplikacija je naišla na problem
             </h1>
 
-            <p className="mb-6 text-sm leading-6 text-[#a1a1aa]">
+            <p className="mb-6 text-sm leading-6 text-text-secondary">
               Nešto nije uspjelo da se učita kako treba.
             </p>
 
@@ -58,9 +58,9 @@ export default function GlobalError({
                 w-full
                 cursor-pointer
                 rounded-xl
-                bg-[#f59e0b]
+                bg-primary
                 font-bold
-                text-black
+                text-white
               "
             >
               Pokušaj ponovo

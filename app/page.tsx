@@ -20,7 +20,7 @@ export default async function LandingPage() {
     }
 
     return (
-        <main className="min-h-screen overflow-hidden bg-background text-text">
+        <main className="landing-page min-h-dvh overflow-hidden bg-background text-text">
 
             {/* NAVBAR */}
 
@@ -33,7 +33,7 @@ export default async function LandingPage() {
                         href="/"
                         className="flex items-center gap-2"
                     >
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-sm font-black text-black">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-sm font-black text-white">
                             S
                         </div>
 
@@ -79,7 +79,7 @@ export default async function LandingPage() {
 
                         <Link
                             href="/register"
-                            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-black text-black transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-black text-white transition-transform hover:scale-[1.02] active:scale-[0.98]"
                         >
                             Započni
                             <ArrowRight className="h-4 w-4" />
@@ -91,7 +91,7 @@ export default async function LandingPage() {
 
             {/* HERO */}
 
-            <section className="relative flex min-h-screen items-center pt-20">
+            <section className="landing-hero relative flex min-h-dvh items-center pt-20">
 
                 {/* subtle background */}
 
@@ -129,7 +129,7 @@ export default async function LandingPage() {
 
                             <Link
                                 href="/register"
-                                className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-6 text-sm font-black text-black transition-all hover:scale-[1.02] active:scale-[0.98]"
+                                className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-6 text-sm font-black text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
                             >
                                 Igraj besplatno
                                 <ArrowRight className="h-4 w-4" />
@@ -158,7 +158,7 @@ export default async function LandingPage() {
 
                         <div className="absolute -inset-10 rounded-full bg-primary/[0.04] blur-3xl" />
 
-                        <div className="relative overflow-hidden rounded-[28px] border border-border bg-surface shadow-2xl">
+                        <div className="landing-preview relative overflow-hidden rounded-[28px] border border-border bg-surface shadow-2xl">
 
                             {/* GAME WINDOW HEADER */}
 
@@ -169,7 +169,7 @@ export default async function LandingPage() {
                                     <div className="h-2.5 w-2.5 rounded-full bg-green-400/60" />
                                 </div>
 
-                                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-secondary">
+                                <span className="text-xs font-bold uppercase tracking-[0.2em] text-text-secondary">
                                     Slagalica
                                 </span>
 
@@ -181,7 +181,7 @@ export default async function LandingPage() {
                             <div className="flex items-center justify-between border-b border-border px-5 py-4">
 
                                 <div className="flex items-center gap-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/15 font-black text-blue-400">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-player/15 font-black text-blue-player">
                                         M
                                     </div>
 
@@ -189,7 +189,7 @@ export default async function LandingPage() {
                                         <div className="text-xs font-black">
                                             Mihajlo
                                         </div>
-                                        <div className="text-[10px] text-text-secondary">
+                                        <div className="text-xs text-text-secondary">
                                             42 XP
                                         </div>
                                     </div>
@@ -203,7 +203,7 @@ export default async function LandingPage() {
                                         </span>
                                         18
                                     </div>
-                                    <div className="text-[9px] font-bold uppercase tracking-widest text-text-secondary">
+                                    <div className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">
                                         Runda 2
                                     </div>
                                 </div>
@@ -213,12 +213,12 @@ export default async function LandingPage() {
                                         <div className="text-xs font-black">
                                             Nikola
                                         </div>
-                                        <div className="text-[10px] text-text-secondary">
+                                        <div className="text-xs text-text-secondary">
                                             35 XP
                                         </div>
                                     </div>
 
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/15 font-black text-red-400">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-player/15 font-black text-red-player">
                                         N
                                     </div>
                                 </div>
@@ -231,7 +231,7 @@ export default async function LandingPage() {
 
                                 <div className="mb-4 flex items-center justify-between">
                                     <div>
-                                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary">
+                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
                                             Ko zna zna
                                         </span>
 
@@ -299,7 +299,7 @@ export default async function LandingPage() {
                 <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
 
                     <div className="mx-auto max-w-2xl text-center">
-                        <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">
+                        <span className="text-xs font-black uppercase tracking-[0.25em] text-primary">
                             Kako radi
                         </span>
 
@@ -352,7 +352,7 @@ export default async function LandingPage() {
                     <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
 
                         <div className="max-w-xl">
-                            <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">
+                            <span className="text-xs font-black uppercase tracking-[0.25em] text-primary">
                                 Šest igara
                             </span>
 
@@ -449,7 +449,7 @@ export default async function LandingPage() {
 
                             <Link
                                 href="/register"
-                                className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-6 text-sm font-black text-black transition-transform hover:scale-[1.02]"
+                                className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-6 text-sm font-black text-white transition-transform hover:scale-[1.02]"
                             >
                                 Napravi nalog
                                 <ArrowRight className="h-4 w-4" />
@@ -482,7 +482,7 @@ export default async function LandingPage() {
 
                     <Link
                         href="/register"
-                        className="mt-7 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-7 text-sm font-black text-black transition-transform hover:scale-[1.02]"
+                        className="mt-7 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-7 text-sm font-black text-white transition-transform hover:scale-[1.02]"
                     >
                         Igraj Slagalicu
                         <ArrowRight className="h-4 w-4" />
@@ -497,7 +497,7 @@ export default async function LandingPage() {
                 <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
 
                     <div className="flex items-center gap-2">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-xs font-black text-black">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-xs font-black text-white">
                             S
                         </div>
 
@@ -545,13 +545,13 @@ function FeatureCard({
     description: string;
 }) {
     return (
-        <div className="rounded-2xl border border-border bg-surface p-5 sm:p-6">
+        <div className="quiz-feature-card rounded-2xl border border-border bg-surface p-5 sm:p-6">
             <div className="flex items-center justify-between">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
                     {icon}
                 </div>
 
-                <span className="text-[10px] font-black tracking-widest text-text-secondary/50">
+                <span className="text-xs font-black tracking-widest text-text-secondary/50">
                     {number}
                 </span>
             </div>
@@ -577,10 +577,10 @@ function GameCard({
     description: string;
 }) {
     return (
-        <div className="group rounded-2xl border border-border bg-surface/60 p-5 transition-colors hover:bg-surface">
+        <div className="quiz-game-card group rounded-2xl border border-border bg-surface/60 p-5 transition-colors hover:bg-surface">
             <div className="flex items-start gap-4">
 
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-[10px] font-black text-primary">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-black text-primary">
                     {number}
                 </span>
 

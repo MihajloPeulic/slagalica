@@ -1317,7 +1317,7 @@ export function PronadjiRec({
                     <button
                         onClick={stopLetters}
                         disabled={!isRoundStarter}
-                        className="w-full py-4 rounded-2xl bg-primary text-black font-black text-xl tracking-wider transition-all active:scale-[0.98] shadow-[0_0_30px_rgba(245,158,11,0.2)] cursor-pointer disabled:cursor-default disabled:opacity-35"
+                        className="w-full py-4 rounded-2xl bg-primary text-white font-black text-xl tracking-wider transition-all active:scale-[0.98] shadow-sm cursor-pointer disabled:cursor-default disabled:opacity-35"
                     >
                         {isRoundStarter ? "STOP" : "ČEKANJE..."}
                     </button>
@@ -1330,19 +1330,19 @@ export function PronadjiRec({
                         )}
 
                         {!isChecking && wordStatus === "TAČNO" && (
-                            <span className="text-xs font-black text-emerald-500 tracking-wider uppercase bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">
+                            <span className="text-xs font-black text-success tracking-wider uppercase bg-success/10 border border-success/20 px-3 py-1 rounded-full">
                                 TAČNO
                             </span>
                         )}
 
                         {!isChecking && wordStatus === "NETAČNO" && (
-                            <span className="text-xs font-black text-red-500 tracking-wider uppercase bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full">
+                            <span className="text-xs font-black text-red-player tracking-wider uppercase bg-red-player/10 border border-red-player/20 px-3 py-1 rounded-full">
                                 NETAČNO
                             </span>
                         )}
                     </div>
 
-                    <div className="w-full text-center py-4 px-4 bg-surface/90 backdrop-blur-md border-2 border-primary/60 rounded-3xl text-primary font-black text-2xl tracking-widest min-h-[64px] flex items-center justify-center overflow-x-auto shadow-[0_0_30px_rgba(245,158,11,0.15)]">
+                    <div className="w-full text-center py-4 px-4 bg-surface/90 backdrop-blur-md border-2 border-primary/60 rounded-3xl text-primary font-black text-2xl tracking-widest min-h-[64px] flex items-center justify-center overflow-x-auto shadow-sm">
                         {isMySubmitted
                             ? myWord
                             : currentWord || (
@@ -1395,7 +1395,7 @@ export function PronadjiRec({
                                     onPointerUp={handleDeletePointerUp}
                                     onPointerCancel={handleDeletePointerCancel}
                                     onContextMenu={(event) => event.preventDefault()}
-                                    className="w-full flex items-center justify-center gap-2 py-3 mt-1 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 font-bold text-sm transition-all active:scale-95 shadow-sm cursor-pointer select-none touch-manipulation"
+                                    className="w-full flex items-center justify-center gap-2 py-3 mt-1 rounded-xl border border-red-player/20 bg-red-player/5 hover:bg-red-player/10 text-red-player font-bold text-sm transition-all active:scale-95 shadow-sm cursor-pointer select-none touch-manipulation"
                                 >
                                     <RotateCcw className="h-4 w-4" />
                                     Obriši slovo (Drži za sve)
@@ -1405,7 +1405,7 @@ export function PronadjiRec({
                             <button
                                 onClick={handleUserSubmit}
                                 disabled={currentWord.length === 0}
-                                className="w-full py-4 mt-2 rounded-2xl bg-primary text-black font-black text-lg transition-all hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_30px_rgba(245,158,11,0.2)] cursor-pointer disabled:opacity-50"
+                                className="w-full py-4 mt-2 rounded-2xl bg-primary text-white font-black text-lg transition-all hover:scale-[1.02] active:scale-[0.98] shadow-sm cursor-pointer disabled:opacity-50"
                             >
                                 Potvrdi reč
                             </button>
@@ -1448,7 +1448,7 @@ export function PronadjiRec({
                     }
                     bottomContent={
                         <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2">
-                            <p className="text-[9px] font-black uppercase tracking-wide text-text-muted">Najduža reč</p>
+                            <p className="text-[10px] font-black uppercase tracking-wide text-text-muted">Najduža reč</p>
                             <p className="mt-1 truncate text-sm font-black tracking-wide text-primary">
                                 {roundSummary?.longestWord || initialTiles?.najduza_rec || "—"}
                             </p>

@@ -95,7 +95,7 @@ export default function Notifications() {
         </IconButton>
 
         {unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full border border-background bg-red-500 px-1 text-[10px] font-black text-white">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full border border-background bg-red-player px-1 text-xs font-black text-white">
             {unreadCount > 9
               ? "9+"
               : unreadCount}
@@ -142,7 +142,7 @@ export default function Notifications() {
                 </h3>
               </div>
 
-              <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-primary/10 px-2 text-[10px] font-black text-primary">
+              <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-primary/10 px-2 text-xs font-black text-primary">
                 {unreadCount}
               </span>
             </header>
@@ -254,7 +254,7 @@ function FriendRequestItem({
             {req.sender.username}
           </span>
 
-          <span className="shrink-0 text-[10px] font-bold text-primary">
+          <span className="shrink-0 text-xs font-bold text-primary">
             {
               req.sender
                 .experience
@@ -277,12 +277,12 @@ function FriendRequestItem({
           </div>
         ) : actionStatus ===
           "accepted" ? (
-          <span className="text-[10px] font-bold text-emerald-500">
+          <span className="text-xs font-bold text-success">
             Prihvaćeno
           </span>
         ) : actionStatus ===
           "declined" ? (
-          <span className="text-[10px] font-bold text-red-500">
+          <span className="text-xs font-bold text-red-player">
             Odbijeno
           </span>
         ) : (
@@ -294,12 +294,12 @@ function FriendRequestItem({
               className="
                 h-8
                 w-8
-                border-emerald-500/20
-                bg-emerald-500/10
-                text-emerald-500
-                hover:border-emerald-500/30
-                hover:bg-emerald-500/20
-                hover:text-emerald-500
+                border-success/20
+                bg-success/10
+                text-success
+                hover:border-success/30
+                hover:bg-success/20
+                hover:text-success
               "
             >
               <Check className="h-3.5 w-3.5" />
@@ -314,12 +314,12 @@ function FriendRequestItem({
               className="
                 h-8
                 w-8
-                border-red-500/20
-                bg-red-500/10
-                text-red-500
-                hover:border-red-500/30
-                hover:bg-red-500/20
-                hover:text-red-500
+                border-red-player/20
+                bg-red-player/10
+                text-red-player
+                hover:border-red-player/30
+                hover:bg-red-player/20
+                hover:text-red-player
               "
             >
               <X className="h-3.5 w-3.5" />

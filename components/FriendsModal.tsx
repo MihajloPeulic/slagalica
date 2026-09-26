@@ -287,9 +287,9 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
 function OnlineCounter({ count }: { count: number }) {
     return (
         <div className="flex items-center gap-2 rounded-full border border-border bg-background px-2.5 py-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span className="h-1.5 w-1.5 rounded-full bg-success" />
 
-            <span className="text-[10px] font-bold text-text-secondary">{count} online</span>
+            <span className="text-xs font-bold text-text-secondary">{count} online</span>
         </div>
     );
 }
@@ -405,7 +405,7 @@ function FriendRow({
                         <span className="truncate text-sm font-black text-text">{friend.username}</span>
 
                         {online && (
-                            <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-black text-emerald-500">
+                            <span className="rounded-full bg-success/10 px-1.5 py-0.5 text-xs font-black text-success">
                                 Online
                             </span>
                         )}
@@ -415,16 +415,12 @@ function FriendRow({
                         <div className="flex items-center gap-1 text-text-secondary">
                             <Trophy className="h-3 w-3" />
 
-                            <span className="text-[10px] font-bold">{friend.experience} XP</span>
+                            <span className="text-xs font-bold">{friend.experience} XP</span>
                         </div>
 
                         <span className="text-text-muted">•</span>
 
-                        <span
-                            className={`text-[10px] font-semibold ${
-                                online ? "text-emerald-500" : "text-text-secondary"
-                            }`}
-                        >
+                        <span className={`text-xs font-semibold ${online ? "text-success" : "text-text-secondary"}`}>
                             {!presenceReady ? "Provjera..." : online ? "Dostupan" : "Offline"}
                         </span>
                     </div>
@@ -487,7 +483,7 @@ function FriendAvatar({ initial, online, selected }: { initial: string; online: 
           rounded-full
           border-2
           border-surface
-          ${online ? "bg-emerald-500" : "bg-text-muted"}
+          ${online ? "bg-success" : "bg-text-muted"}
         `}
             />
         </div>
@@ -608,9 +604,9 @@ function AddFriendTab({
                     </Button>
                 </div>
 
-                {errorMessage && <p className="px-1 text-xs font-medium text-red-500">{errorMessage}</p>}
+                {errorMessage && <p className="px-1 text-xs font-medium text-red-player">{errorMessage}</p>}
 
-                {successMessage && <p className="px-1 text-xs font-medium text-emerald-500">{successMessage}</p>}
+                {successMessage && <p className="px-1 text-xs font-medium text-success">{successMessage}</p>}
             </div>
         </div>
     );

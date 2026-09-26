@@ -74,7 +74,7 @@ export default function LoginForm() {
           <div className="mb-1.5 flex items-center justify-between">
             <label
               htmlFor="password"
-              className="text-[10px] font-black uppercase tracking-[0.16em] text-text-secondary"
+              className="text-xs font-black uppercase tracking-[0.16em] text-text-secondary"
             >
               Lozinka
             </label>

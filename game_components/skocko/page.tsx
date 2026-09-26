@@ -843,18 +843,18 @@ export function Skocko({
                 <>
                     <div className="flex flex-col items-center pt-1">
                         {phase === "primary_turn" && (
-                            <span className="rounded-full border border-primary/20 bg-primary/5 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-primary animate-pulse">
+                            <span className="rounded-full border border-primary/20 bg-primary/5 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-widest text-primary animate-pulse">
                                 Na potezu:{" "}
-                                <strong className={round === 1 ? "text-blue-500" : "text-red-500"}>
+                                <strong className={round === 1 ? "text-blue-player" : "text-red-player"}>
                                     {round === 1 ? "Plavi" : "Crveni"}
                                 </strong>{" "}
                                 igrač
                             </span>
                         )}
                         {phase === "secondary_turn" && (
-                            <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-red-500 animate-bounce shadow-sm">
+                            <span className="rounded-full border border-red-player/20 bg-red-player/10 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-widest text-red-player animate-bounce shadow-sm">
                                 Šansa za{" "}
-                                <strong className={round === 1 ? "text-red-500" : "text-blue-500"}>
+                                <strong className={round === 1 ? "text-red-player" : "text-blue-player"}>
                                     {round === 1 ? "Crvenog" : "Plavog"}
                                 </strong>
                                 !
@@ -873,8 +873,8 @@ export function Skocko({
                                 <div
                                     key={rIdx}
                                     className={`grid w-full grid-cols-6 items-center gap-1.5 rounded-xl border px-1.5 py-[clamp(0.1rem,0.35dvh,0.25rem)] transition-all
-                                        ${isOpponentRow ? "mt-[clamp(0.18rem,0.6dvh,0.5rem)] border-t-[3px] border-t-red-500/40 bg-red-500/5" : ""}
-                                        ${isCurrentRow && canPlay ? "bg-surface/90 border-primary/60 shadow-[0_0_15px_rgba(245,158,11,0.1)]" : ""}
+                                        ${isOpponentRow ? "mt-[clamp(0.18rem,0.6dvh,0.5rem)] border-t-[3px] border-t-red-500/40 bg-red-player/5" : ""}
+                                        ${isCurrentRow && canPlay ? "bg-surface/90 border-primary/60 shadow-sm" : ""}
                                         ${isCurrentRow && !canPlay ? "bg-surface/70 border-primary/30" : ""}
                                         ${!isCurrentRow ? "bg-surface/40 border-border/50 opacity-70" : ""}
                                     `}
@@ -889,7 +889,7 @@ export function Skocko({
                                                     disabled={!canPlay || !isCurrentRow || !val}
                                                     className={`flex aspect-square w-full items-center justify-center rounded-xl border border-border bg-background text-lg transition-all shadow-inner
                                                         ${isCurrentRow && cIdx === currentCol && canPlay ? "border-primary ring-2 ring-primary/20 animate-pulse" : ""}
-                                                        ${isCurrentRow && val && canPlay ? "hover:border-red-500/50 hover:bg-red-500/5 cursor-pointer" : "cursor-default"}
+                                                        ${isCurrentRow && val && canPlay ? "hover:border-red-player/50 hover:bg-red-player/5 cursor-pointer" : "cursor-default"}
                                                     `}
                                                 >
                                                     {symbolObj ? symbolObj.symbol : ""}
@@ -919,8 +919,8 @@ export function Skocko({
                                                 <div
                                                     key={pIdx}
                                                     className={`h-2 w-2 rounded-full border transition-colors
-                                                        ${hintType === "hit" ? "bg-red-500 border-red-500 shadow-[0_0_6px_rgba(239,68,68,0.5)]" : ""}
-                                                        ${hintType === "almost" ? "bg-amber-400 border-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.5)]" : ""}
+                                                        ${hintType === "hit" ? "bg-red-player border-red-player shadow-sm" : ""}
+                                                        ${hintType === "almost" ? "bg-amber-400 border-amber-400 shadow-sm" : ""}
                                                         ${hintType === "none" ? "bg-surface-light border-border" : ""}
                                                     `}
                                                 />
@@ -933,7 +933,7 @@ export function Skocko({
                                             className={`col-span-2 flex h-full min-h-0 w-full items-center justify-center rounded-xl border transition-all shadow-sm
                                                 ${
                                                     isCurrentRow && isRowComplete && canPlay
-                                                        ? "bg-primary border-primary text-black hover:scale-[1.03] active:scale-[0.97] cursor-pointer"
+                                                        ? "bg-primary border-primary text-white hover:scale-[1.03] active:scale-[0.97] cursor-pointer"
                                                         : "bg-surface/50 border-border text-text-muted opacity-40 cursor-not-allowed"
                                                 }`}
                                         >
@@ -974,7 +974,7 @@ export function Skocko({
                     nextLabel={round === 1 ? "Sledeća runda za" : "Sledeća igra za"}
                     bottomContent={
                         <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-background p-3">
-                            <span className="text-[9px] font-black uppercase tracking-wide text-text-muted">
+                            <span className="text-[10px] font-black uppercase tracking-wide text-text-muted">
                                 Tražena kombinacija
                             </span>
                             <div className="flex items-center gap-1.5">

@@ -1085,7 +1085,7 @@ export function Spojnice({
                     nextLabel={round === 1 ? "Sledeća runda za" : "Sledeća igra za"}
                     topContent={
                         <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2">
-                            <p className="text-[9px] font-black uppercase tracking-wide text-text-muted">Tema</p>
+                            <p className="text-[10px] font-black uppercase tracking-wide text-text-muted">Tema</p>
                             <p className="mt-1 text-sm font-black text-primary">{data.tema}</p>
                         </div>
                     }
@@ -1094,7 +1094,7 @@ export function Spojnice({
                             {data.pairs.map((pair) => (
                                 <div
                                     key={pair.id}
-                                    className="rounded-lg border border-border bg-background px-2 py-1.5 text-left text-[10px] leading-tight text-text-secondary"
+                                    className="rounded-lg border border-border bg-background px-2 py-1.5 text-left text-[11px] leading-tight text-text-secondary"
                                 >
                                     <span className="font-black text-text">{pair.left}</span>
                                     <span className="mx-1 text-text-muted">→</span>
@@ -1129,12 +1129,12 @@ export function Spojnice({
                                     font-black
                                     ${
                                         isError
-                                            ? "border-red-500/30 bg-red-500/10 text-red-400"
+                                            ? "border-red-player/30 bg-red-player/10 text-red-player"
                                             : phase === "countdown"
                                               ? "border-primary/30 bg-primary/10 text-primary"
                                               : activePlayer === "blue"
-                                                ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
-                                                : "border-red-500/30 bg-red-500/10 text-red-400"
+                                                ? "border-blue-player/30 bg-blue-player/10 text-blue-player"
+                                                : "border-red-player/30 bg-red-player/10 text-red-player"
                                     }
                                 `}
                             >
@@ -1180,8 +1180,8 @@ export function Spojnice({
                                 if (matched) {
                                     btnStyle =
                                         matched.player === "blue"
-                                            ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
-                                            : "border-red-500/30 bg-red-500/10 text-red-400";
+                                            ? "border-blue-player/30 bg-blue-player/10 text-blue-player"
+                                            : "border-red-player/30 bg-red-player/10 text-red-player";
                                 } else if (isMissed) {
                                     btnStyle = "border-border bg-surface text-text-muted opacity-30 line-through";
                                 } else if (isActive) {
@@ -1230,8 +1230,8 @@ export function Spojnice({
 
                                     btnStyle =
                                         matchInfo?.player === "blue"
-                                            ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
-                                            : "border-red-500/30 bg-red-500/10 text-red-400";
+                                            ? "border-blue-player/30 bg-blue-player/10 text-blue-player"
+                                            : "border-red-player/30 bg-red-player/10 text-red-player";
                                 } else if (isSelected && isError) {
                                     btnStyle = "border-primary/50 bg-primary/10 text-primary";
                                 } else if (isSelected) {

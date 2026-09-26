@@ -2,41 +2,23 @@ import Image from "next/image";
 
 export default function MainLogo() {
   return (
-    <div
-      className="ml-auto mr-auto relative flex w-full items-center justify-center"
-      aria-label="Slagalica"
-    >
-      {/* Glow iza loga */}
-      <div
-        className="
-          pointer-events-none
-          absolute
-          left-1/2 top-1/2
-          h-24 w-72
-          -translate-x-1/2 -translate-y-1/2
-          rounded-full
-          bg-primary/15
-          blur-[60px]
-        "
-      />
-
-      <h1 className="relative flex w-full items-center justify-center select-none">
+    <div className="relative flex w-full flex-col items-center" aria-label="Slagalica">
+      <div className="quiz-float relative mb-2 flex h-28 w-28 items-center justify-center rounded-full bg-surface-light sm:h-32 sm:w-32">
         <Image
-          src="/images/slagalica.png"
-          alt="Slagalica"
-          width={900}
-          height={300}
+          src="/images/lavic.png"
+          alt=""
+          width={112}
+          height={112}
           priority
-          className="
-            h-auto
-            w-[290px]
-            max-w-full
-            object-contain
-            drop-shadow-[0_0_18px_rgba(245,158,11,0.18)]
-            sm:w-[340px]
-          "
+          className="h-24 w-24 object-contain sm:h-28 sm:w-28"
         />
+      </div>
+      <h1 className="text-center text-[clamp(2.25rem,10vw,3.2rem)] font-black leading-none tracking-[-0.075em] text-text">
+        Slagalica<span className="text-primary">.</span>
       </h1>
+      <p className="mt-3 text-sm font-semibold tracking-tight text-text-secondary">
+        Malo znanja. Mnogo zabave.
+      </p>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import LoginForm from "./LoginForm";
 
 export default function LoginPage() {
   return (
-    <main className="page-container page-spacing flex min-h-[100dvh] flex-col justify-center">
+    <main className="auth-page page-container page-spacing flex min-h-[100dvh] flex-col justify-center">
       <header className="mb-8 text-center">
         <p className="eyebrow">
           Prijava
@@ -19,15 +19,17 @@ export default function LoginPage() {
         </p>
       </header>
 
-      <Suspense
-        fallback={
-          <p className="secondary-text text-center">
-            Učitavanje...
-          </p>
-        }
-      >
-        <LoginForm />
-      </Suspense>
+      <div className="card-base card-padding">
+        <Suspense
+          fallback={
+            <p className="secondary-text text-center">
+              Učitavanje...
+            </p>
+          }
+        >
+          <LoginForm />
+        </Suspense>
+      </div>
 
       <footer className="mt-8 text-center">
         <p className="secondary-text">

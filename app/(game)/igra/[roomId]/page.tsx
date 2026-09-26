@@ -2970,11 +2970,11 @@ export default function GameRoomPage() {
         return (
             <div className="flex flex-col min-h-[100dvh] items-center justify-center bg-background px-4">
                 <div className="flex max-w-xs flex-col items-center text-center">
-                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-player/10 text-red-player">
                         <ShieldAlert className="h-5 w-5" />
                     </div>
 
-                    <p className="card-title text-red-400">{error}</p>
+                    <p className="card-title text-red-player">{error}</p>
                 </div>
                 <Link
                     href="/home"
@@ -2994,7 +2994,7 @@ export default function GameRoomPage() {
         return (
             <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
                 <div className="flex max-w-xs flex-col items-center text-center">
-                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-player/10 text-red-player">
                         <ShieldAlert className="h-5 w-5" />
                     </div>
 
@@ -3046,7 +3046,7 @@ export default function GameRoomPage() {
                         {/* PLAYERS */}
                         <div className="flex w-full items-center justify-center gap-5">
                             <div className="flex min-w-0 flex-1 flex-col items-center gap-2">
-                                <div className="flex h-16 w-16 items-center justify-center rounded-full border border-blue-500/30 bg-blue-500/10 text-2xl font-black text-blue-400">
+                                <div className="flex h-16 w-16 items-center justify-center rounded-full border border-blue-player/30 bg-blue-player/10 text-2xl font-black text-blue-player">
                                     {blueInitial}
                                 </div>
 
@@ -3058,7 +3058,7 @@ export default function GameRoomPage() {
                             <span className="shrink-0 text-xs font-black text-text-muted">VS</span>
 
                             <div className="flex min-w-0 flex-1 flex-col items-center gap-2">
-                                <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-red-500/30 bg-red-500/10 text-red-400">
+                                <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-red-player/30 bg-red-player/10 text-red-player">
                                     <span
                                         key={redInitial}
                                         className="animate-in fade-in slide-in-from-top-2 text-2xl font-black duration-200"
@@ -3102,7 +3102,7 @@ export default function GameRoomPage() {
                     <div className="flex w-full flex-col items-center justify-center">
                         {/* GAME LABEL */}
                         <div className="mb-5 flex items-center justify-center">
-                            <span className="rounded-lg border border-border bg-surface px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-text-secondary">
+                            <span className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-black uppercase tracking-wide text-text-secondary">
                                 {gameNames[gameIndex] ?? ""}
 
                                 {gameIndex !== 6 && gameIndex !== 3 && ` / Runda ${round} / 2`}
@@ -3302,7 +3302,7 @@ export default function GameRoomPage() {
 
             {/* FOOTER */}
             <footer className="shrink-0 pb-1 text-center">
-                <p className="text-[10px] font-semibold text-text-muted">Room {roomId.slice(0, 8)}</p>
+                <p className="text-xs font-semibold text-text-muted">Room {roomId.slice(0, 8)}</p>
             </footer>
         </div>
     );

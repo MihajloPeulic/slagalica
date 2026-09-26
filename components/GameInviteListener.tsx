@@ -131,11 +131,11 @@ export default function GameInviteListener({
               justify-center
               rounded-xl
               border
-              border-emerald-500/30
-              bg-emerald-500/10
-              text-emerald-400
+              border-success/30
+              bg-success/10
+              text-success
               transition-colors
-              hover:bg-emerald-500/20
+              hover:bg-success/20
               active:scale-[0.98]
             "
           >
@@ -149,12 +149,12 @@ export default function GameInviteListener({
             className="
               h-9
               w-9
-              border-red-500/25
-              bg-red-500/10
-              text-red-400
-              hover:border-red-500/30
-              hover:bg-red-500/20
-              hover:text-red-400
+              border-red-player/25
+              bg-red-player/10
+              text-red-player
+              hover:border-red-player/30
+              hover:bg-red-player/20
+              hover:text-red-player
             "
           >
             <X className="h-4 w-4" />

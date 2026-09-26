@@ -1204,11 +1204,11 @@ export function Asocijacije({
         if (solved) {
             style =
                 solver === "blue"
-                    ? "bg-blue-500/20 border-blue-500/50 text-blue-400 shadow-[0_0_12px_rgba(59,130,246,0.15)]"
-                    : "bg-red-500/20 border-red-500/50 text-red-400 shadow-[0_0_12px_rgba(239,68,68,0.15)]";
+                    ? "bg-blue-player/20 border-blue-player/50 text-blue-player shadow-sm"
+                    : "bg-red-player/20 border-red-player/50 text-red-player shadow-sm";
             content = data.kolone[col].fields[row - 1];
         } else if (manuallyOpened) {
-            style = "bg-surface border-primary/50 text-text shadow-[0_0_8px_rgba(245,158,11,0.1)]";
+            style = "bg-surface border-primary/50 text-text shadow-sm";
             content = data.kolone[col].fields[row - 1];
         }
 
@@ -1254,10 +1254,10 @@ export function Asocijacije({
         if (solved) {
             style =
                 solver === "blue"
-                    ? "bg-blue-500/20 border-blue-500/50 text-blue-400 shadow-[0_0_12px_rgba(59,130,246,0.25)]"
-                    : "bg-red-500/20 border-red-500/50 text-red-400 shadow-[0_0_12px_rgba(239,68,68,0.25)]";
+                    ? "bg-blue-player/20 border-blue-player/50 text-blue-player shadow-sm"
+                    : "bg-red-player/20 border-red-player/50 text-red-player shadow-sm";
         } else if (opponentPreview) {
-            style = "bg-yellow-500/10 border-yellow-500/40 text-yellow-300";
+            style = "bg-yellow-500/10 border-yellow-500/40 text-warning";
         } else if (canGuess) {
             style =
                 "bg-surface border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50 cursor-pointer";
@@ -1296,17 +1296,17 @@ export function Asocijacije({
             {phase === "preparing" ? (
                 <>
                     <div className="flex flex-col items-center mb-5 z-10">
-                        <span className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2 flex items-center gap-1">
+                        <span className="text-[11px] font-bold text-primary uppercase tracking-widest mb-2 flex items-center gap-1">
                             <Sparkles className="h-3.5 w-3.5" /> Asocijacije (Runda {round})
                         </span>
-                        <span className="text-[10px] font-black uppercase px-4 py-1.5 rounded-full border bg-primary/10 border-primary/30 text-primary">
+                        <span className="text-[11px] font-black uppercase px-4 py-1.5 rounded-full border bg-primary/10 border-primary/30 text-primary">
                             Igra počinje za {prepareTimeLeft}s
                         </span>
                     </div>
 
                     <div className="flex flex-col items-center justify-center py-10 px-5 text-center bg-surface border border-border rounded-3xl w-full shadow-xl gap-4">
                         <Sparkles className="h-10 w-10 text-primary animate-pulse" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">
+                        <span className="text-[11px] font-bold uppercase tracking-widest text-text-secondary">
                             Priprema
                         </span>
                         <div className="text-5xl font-black text-primary">{prepareTimeLeft}</div>
@@ -1329,8 +1329,8 @@ export function Asocijacije({
                                         key={`summary-${col}`}
                                         className="rounded-xl border border-border bg-background px-2 py-2"
                                     >
-                                        <p className="text-[8px] font-black uppercase text-text-muted">Kolona {col}</p>
-                                        <p className="mt-1 truncate text-[10px] font-black text-text">
+                                        <p className="text-[10px] font-black uppercase text-text-muted">Kolona {col}</p>
+                                        <p className="mt-1 truncate text-[11px] font-black text-text">
                                             {data.kolone[col].sol[0]}
                                         </p>
                                     </div>
@@ -1338,7 +1338,7 @@ export function Asocijacije({
                             </div>
 
                             <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2">
-                                <p className="text-[8px] font-black uppercase text-text-muted">Konačno rešenje</p>
+                                <p className="text-[10px] font-black uppercase text-text-muted">Konačno rešenje</p>
                                 <p className="mt-1 text-xs font-black text-primary">{data.konacno[0]}</p>
                             </div>
                         </div>
@@ -1351,19 +1351,19 @@ export function Asocijacije({
                 <div className="w-full min-h-0 flex flex-col justify-center">
                     {/* HEADER */}
                     <div className="shrink-0 flex flex-col items-center mb-[clamp(8px,1.7dvh,16px)]">
-                        <span className="text-[9px] font-bold text-primary uppercase tracking-[0.16em] flex items-center gap-1 mb-[clamp(4px,0.7dvh,7px)]">
+                        <span className="text-[10px] font-bold text-primary uppercase tracking-[0.16em] flex items-center gap-1 mb-[clamp(4px,0.7dvh,7px)]">
                             <Sparkles className="h-3 w-3" /> Asocijacije <span className="opacity-60">•</span> Runda{" "}
                             {round}
                         </span>
                         <span
-                            className={`text-[9px] font-black uppercase px-3 py-[5px] rounded-full border shadow-sm transition-colors duration-500 ${
+                            className={`text-[10px] font-black uppercase px-3 py-[5px] rounded-full border shadow-sm transition-colors duration-500 ${
                                 phase === "celebration"
-                                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-500"
+                                    ? "bg-success/10 border-success/30 text-success"
                                     : phase === "transition"
                                       ? "bg-surface-light border-border text-text-secondary"
                                       : activePlayer === "blue"
-                                        ? "bg-blue-500/10 border-blue-500/30 text-blue-500"
-                                        : "bg-red-500/10 border-red-500/30 text-red-500"
+                                        ? "bg-blue-player/10 border-blue-player/30 text-blue-player"
+                                        : "bg-red-player/10 border-red-player/30 text-red-player"
                             }`}
                         >
                             {phase === "celebration"
@@ -1377,10 +1377,10 @@ export function Asocijacije({
 
                         {allFieldsOpened && phase !== "celebration" && (
                             <div className="flex gap-1.5 mt-1">
-                                <span className="text-[8px] leading-none font-black uppercase px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                                <span className="text-[10px] leading-none font-black uppercase px-2 py-1 rounded-md bg-blue-player/10 border border-blue-player/20 text-blue-player">
                                     Plavi: {remainingAttempts.blue}
                                 </span>
-                                <span className="text-[8px] leading-none font-black uppercase px-2 py-1 rounded-md bg-red-500/10 border border-red-500/20 text-red-400">
+                                <span className="text-[10px] leading-none font-black uppercase px-2 py-1 rounded-md bg-red-player/10 border border-red-player/20 text-red-player">
                                     Crveni: {remainingAttempts.red}
                                 </span>
                             </div>
@@ -1409,10 +1409,10 @@ export function Asocijacije({
                             className={`h-[clamp(36px,5.4dvh,48px)] shrink-0 w-full flex items-center justify-center rounded-[clamp(9px,1.5dvh,14px)] border text-[clamp(10px,1.45dvh,13px)] leading-none font-black uppercase transition-all duration-700 ease-in-out shadow-sm ${
                                 finalSolvedBy
                                     ? finalSolvedBy === "blue"
-                                        ? "bg-blue-500/20 border-blue-500/50 text-blue-400 shadow-[0_0_18px_rgba(59,130,246,0.4)]"
-                                        : "bg-red-500/20 border-red-500/50 text-red-400 shadow-[0_0_18px_rgba(239,68,68,0.4)]"
+                                        ? "bg-blue-player/20 border-blue-player/50 text-blue-player shadow-sm"
+                                        : "bg-red-player/20 border-red-player/50 text-red-player shadow-sm"
                                     : opponentFinalPreview
-                                      ? "bg-yellow-500/10 border-yellow-500/40 text-yellow-300"
+                                      ? "bg-yellow-500/10 border-yellow-500/40 text-warning"
                                       : canGuessFinal
                                         ? "bg-surface border-primary/40 text-primary hover:bg-primary/10 cursor-pointer"
                                         : "bg-surface/30 border-border/50 text-text-muted cursor-not-allowed"
@@ -1449,7 +1449,7 @@ export function Asocijacije({
                                     if (processed)
                                         sendBroadcast({ type: "ASOC_MOVE", role: myRole, round, action: "PASS" });
                                 }}
-                                className="h-[clamp(30px,4.5dvh,38px)] flex items-center justify-center gap-1.5 px-5 rounded-full bg-surface border border-border text-text text-[10px] font-bold hover:bg-surface-light active:scale-95 transition-all"
+                                className="h-[clamp(30px,4.5dvh,38px)] flex items-center justify-center gap-1.5 px-5 rounded-full bg-surface border border-border text-text text-[11px] font-bold hover:bg-surface-light active:scale-95 transition-all"
                             >
                                 Dalje <ArrowRight className="h-3.5 w-3.5" />
                             </button>
@@ -1464,7 +1464,7 @@ export function Asocijacije({
             {modalTarget && isMyTurn && phase !== "celebration" && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
                     <div
-                        className={`w-full max-w-[310px] bg-surface border rounded-2xl p-4 shadow-2xl ${isError ? "border-red-500" : "border-border"}`}
+                        className={`w-full max-w-[310px] bg-surface border rounded-2xl p-4 shadow-2xl ${isError ? "border-red-player" : "border-border"}`}
                     >
                         <div className="flex justify-between items-center mb-3">
                             <h3 className="text-xs font-bold text-text uppercase">
@@ -1487,11 +1487,11 @@ export function Asocijacije({
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.target.value)}
                                 placeholder="Unesi reč..."
-                                className={`w-full bg-background border rounded-xl px-3.5 py-2.5 text-sm font-bold text-text focus:outline-none ${isError ? "border-red-500" : "border-border focus:border-primary"}`}
+                                className={`w-full bg-background border rounded-xl px-3.5 py-2.5 text-sm font-bold text-text focus:outline-none ${isError ? "border-red-player" : "border-border focus:border-primary"}`}
                             />
                             <button
                                 type="submit"
-                                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-sm ${isError ? "bg-red-500 text-white" : "bg-primary text-black"}`}
+                                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-sm ${isError ? "bg-red-player text-white" : "bg-primary text-white"}`}
                             >
                                 {isError ? "Netačno!" : "Potvrdi"} <Check className="h-4 w-4" />
                             </button>

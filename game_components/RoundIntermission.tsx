@@ -39,7 +39,7 @@ export function RoundIntermission({
                     <Trophy className="h-5 w-5" />
                 </div>
 
-                <p className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-primary">
+                <p className="mt-2 text-[11px] font-black uppercase tracking-[0.14em] text-primary">
                     {typeof round === "number" ? `Rezultat runde ${round}` : "Rezultat"}
                 </p>
 
@@ -49,12 +49,12 @@ export function RoundIntermission({
             {topContent ? <div className="w-full">{topContent}</div> : null}
 
             <div className="grid w-full grid-cols-2 gap-2">
-                <div className="min-w-0 rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 text-left">
+                <div className="min-w-0 rounded-xl border border-blue-player/20 bg-blue-player/5 p-3 text-left">
                     <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-black uppercase tracking-wide text-blue-400">
+                        <span className="text-[11px] font-black uppercase tracking-wide text-blue-player">
                             Plavi igrač
                         </span>
-                        <span className="shrink-0 text-xl font-black tabular-nums text-blue-400">
+                        <span className="shrink-0 text-xl font-black tabular-nums text-blue-player">
                             {formatPoints(bluePoints)}
                         </span>
                     </div>
@@ -62,12 +62,12 @@ export function RoundIntermission({
                     {blueDetail ? <div className="mt-2 min-w-0 text-xs text-text-secondary">{blueDetail}</div> : null}
                 </div>
 
-                <div className="min-w-0 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-left">
+                <div className="min-w-0 rounded-xl border border-red-player/20 bg-red-player/5 p-3 text-left">
                     <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-black uppercase tracking-wide text-red-400">
+                        <span className="text-[11px] font-black uppercase tracking-wide text-red-player">
                             Crveni igrač
                         </span>
-                        <span className="shrink-0 text-xl font-black tabular-nums text-red-400">
+                        <span className="shrink-0 text-xl font-black tabular-nums text-red-player">
                             {formatPoints(redPoints)}
                         </span>
                     </div>

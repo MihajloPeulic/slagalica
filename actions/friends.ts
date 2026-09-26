@@ -284,7 +284,7 @@ export async function AcceptFriendRequest(
         success: true,
     };
 }
-
+ 
 
 export async function RejectFriendRequest(
     reqId: number

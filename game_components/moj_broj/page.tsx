@@ -1153,7 +1153,7 @@ export function MojBroj({
                     </div>
 
                     <div className="flex flex-col items-center">
-                        <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-1">
+                        <span className="text-[11px] font-bold text-text-secondary uppercase tracking-widest mb-1">
                             Traženi broj
                         </span>
 
@@ -1176,7 +1176,7 @@ export function MojBroj({
                     <button
                         onClick={stopNumberSelection}
                         disabled={!isRoundStarter}
-                        className="w-full py-4 rounded-2xl bg-primary text-black font-black text-xl tracking-wider transition-all active:scale-[0.98] shadow-md cursor-pointer disabled:cursor-default disabled:opacity-35"
+                        className="w-full py-4 rounded-2xl bg-primary text-white font-black text-xl tracking-wider transition-all active:scale-[0.98] shadow-md cursor-pointer disabled:cursor-default disabled:opacity-35"
                     >
                         {isRoundStarter ? "STOP" : "ČEKANJE..."}
                     </button>
@@ -1184,7 +1184,7 @@ export function MojBroj({
             ) : phase !== "intermission" ? (
                 <>
                     <div className="flex flex-col items-center">
-                        <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-1">
+                        <span className="text-[11px] font-bold text-text-secondary uppercase tracking-widest mb-1">
                             Traženi broj
                         </span>
                         <div className="flex items-center justify-center h-[72px] w-[120px] rounded-2xl border-2 border-primary/60 bg-surface/90 shadow-md">
@@ -1233,7 +1233,7 @@ export function MojBroj({
                                     onPointerUp={handleDeletePressEnd}
                                     onPointerLeave={handleDeletePressCancel}
                                     onPointerCancel={handleDeletePressCancel}
-                                    className="flex items-center justify-center h-10 px-3 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 transition-all active:scale-95 cursor-pointer touch-none"
+                                    className="flex items-center justify-center h-10 px-3 rounded-xl border border-red-player/20 bg-red-player/5 hover:bg-red-player/10 text-red-player transition-all active:scale-95 cursor-pointer touch-none"
                                 >
                                     <RotateCcw className="h-4 w-4" />
                                 </button>
@@ -1242,7 +1242,7 @@ export function MojBroj({
                             <button
                                 onClick={handleUserSubmit}
                                 disabled={history.length === 0}
-                                className="w-full py-3.5 mt-2 rounded-2xl bg-primary text-black font-black text-base transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md cursor-pointer disabled:opacity-50"
+                                className="w-full py-3.5 mt-2 rounded-2xl bg-primary text-white font-black text-base transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md cursor-pointer disabled:opacity-50"
                             >
                                 Potvrdi rešenje
                             </button>

@@ -56,7 +56,7 @@ export function GameHeader({
 
                         ${
                             role === "blue"
-                                ? "border-blue-500/40"
+                                ? "border-blue-player/40"
                                 : "border-border"
                         }
                     `}
@@ -71,9 +71,9 @@ export function GameHeader({
                             justify-center
                             rounded-full
                             border
-                            border-blue-500/20
-                            bg-blue-500/10
-                            text-blue-500
+                            border-blue-player/20
+                            bg-blue-player/10
+                            text-blue-player
                         "
                     >
                         <User className="h-4 w-4 stroke-[2.5]" />
@@ -84,9 +84,9 @@ export function GameHeader({
                             className="
                                 block
                                 truncate
-                                text-[10px]
+                                text-xs
                                 font-bold
-                                text-blue-400
+                                text-blue-player
                             "
                             title={blueName}
                         >
@@ -99,7 +99,7 @@ export function GameHeader({
                                 whitespace-nowrap
                                 text-sm
                                 font-black
-                                text-blue-500
+                                text-blue-player
                             "
                         >
                             {player1Score} pts
@@ -128,7 +128,7 @@ export function GameHeader({
 
                     ${
                         timeLeft <= 10 && !isSubmitted
-                            ? "animate-pulse border-red-500/40 bg-red-500/10 text-red-500"
+                            ? "animate-pulse border-red-player/40 bg-red-player/10 text-red-player"
                             : "border-border bg-surface/80 text-text"
                     }
                 `}
@@ -166,7 +166,7 @@ export function GameHeader({
 
                         ${
                             role === "red"
-                                ? "border-red-500/40"
+                                ? "border-red-player/40"
                                 : "border-border"
                         }
                     `}
@@ -181,9 +181,9 @@ export function GameHeader({
                             justify-center
                             rounded-full
                             border
-                            border-red-500/20
-                            bg-red-500/10
-                            text-red-500
+                            border-red-player/20
+                            bg-red-player/10
+                            text-red-player
                         "
                     >
                         <User className="h-4 w-4 stroke-[2.5]" />
@@ -194,9 +194,9 @@ export function GameHeader({
                             className="
                                 block
                                 truncate
-                                text-[10px]
+                                text-xs
                                 font-bold
-                                text-red-400
+                                text-red-player
                             "
                             title={redName ?? ""}
                         >
@@ -209,7 +209,7 @@ export function GameHeader({
                                 whitespace-nowrap
                                 text-sm
                                 font-black
-                                text-red-500
+                                text-red-player
                             "
                         >
                             {player2Score} pts

@@ -76,8 +76,8 @@ function ScoreBlock({
           font-black
           ${
             tone === "blue"
-              ? "text-blue-500"
-              : "text-red-500"
+              ? "text-blue-player"
+              : "text-red-player"
           }
         `}
       >

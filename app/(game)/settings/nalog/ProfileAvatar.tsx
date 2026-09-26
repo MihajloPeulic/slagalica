@@ -210,7 +210,7 @@ export function ProfileAvatar({
           border-2
           border-surface
           bg-primary
-          text-black
+          text-white
           transition-colors
           hover:bg-primary-hover
           active:scale-[0.98]

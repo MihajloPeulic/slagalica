@@ -39,7 +39,7 @@ export function ErrorPopup({ message, onClose, action }: ErrorPopupProps) {
                     relative
                     w-full max-w-[340px]
                     rounded-2xl
-                    border border-red-500/20
+                    border border-red-player/20
                     bg-surface
                     px-6 py-7
                 "
@@ -65,7 +65,7 @@ export function ErrorPopup({ message, onClose, action }: ErrorPopupProps) {
                 </button>
 
                 <div className="flex flex-col items-center gap-4 text-center">
-                    <ShieldAlert className="h-10 w-10 text-red-500" strokeWidth={1.8} />
+                    <ShieldAlert className="h-10 w-10 text-red-player" strokeWidth={1.8} />
 
                     <p className="max-w-[260px] text-sm font-medium leading-6 text-text">{message}</p>
 

@@ -3,7 +3,7 @@ import SignUpForm from "./SignUpForm";
 
 export default function RegisterPage() {
   return (
-    <main className="page-container page-spacing flex min-h-[100dvh] flex-col justify-center">
+    <main className="auth-page page-container page-spacing flex min-h-[100dvh] flex-col justify-center">
       <header className="mb-8 text-center">
         <p className="eyebrow">
           Registracija
@@ -18,7 +18,9 @@ export default function RegisterPage() {
         </p>
       </header>
 
-      <SignUpForm />
+      <div className="card-base card-padding">
+        <SignUpForm />
+      </div>
 
       <footer className="mt-8 text-center">
         <p className="secondary-text">

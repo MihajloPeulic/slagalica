@@ -388,7 +388,7 @@ function TopPlayerCard({
             <Flame className="h-3 w-3 text-primary" />
           )}
 
-          <span className="text-[10px] font-bold uppercase text-text-muted">
+          <span className="text-xs font-bold uppercase text-text-muted">
             {getMetricShortLabel(
               sortBy,
             )}
@@ -406,10 +406,10 @@ function RankBadge({
 }) {
   const style =
     place === 1
-      ? "bg-primary text-black"
+      ? "bg-primary text-white"
       : place === 2
-        ? "bg-zinc-300/10 text-zinc-300"
-        : "bg-amber-700/15 text-amber-600";
+        ? "bg-surface-light text-text-secondary"
+        : "bg-orange/10 text-orange";
 
   return (
     <div
@@ -421,7 +421,7 @@ function RankBadge({
         justify-center
         rounded-full
         px-2
-        text-[10px]
+        text-xs
         font-black
         ${style}
       `}
@@ -449,7 +449,7 @@ function LeaderboardTable({
 }) {
   return (
     <div>
-      <div className="mb-2 grid grid-cols-[32px_minmax(0,1fr)_72px] items-center px-3 text-[10px] font-black uppercase tracking-wide text-text-muted">
+      <div className="mb-2 grid grid-cols-[32px_minmax(0,1fr)_72px] items-center px-3 text-xs font-black uppercase tracking-wide text-text-muted">
         <span>#</span>
 
         <span>Igrač</span>
@@ -537,7 +537,7 @@ function LeaderboardRow({
           )}
         </p>
 
-        <p className="text-[10px] font-bold uppercase text-text-muted">
+        <p className="text-xs font-bold uppercase text-text-muted">
           {getMetricShortLabel(
             sortBy,
           )}

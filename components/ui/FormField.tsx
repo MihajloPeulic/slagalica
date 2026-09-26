@@ -11,7 +11,7 @@ export function FormField({
 }) {
   return (
     <div>
-      <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.16em] text-text-secondary">
+      <label className="mb-1.5 block text-xs font-black uppercase tracking-[0.16em] text-text-secondary">
         {label}
       </label>
 

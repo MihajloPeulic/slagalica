@@ -74,20 +74,20 @@ function StatCard({
   const styles = {
     green: {
       wrapper:
-        "border-emerald-500/20 bg-emerald-500/5",
+        "border-success/20 bg-success/5",
       icon:
-        "bg-emerald-500/10 text-emerald-400",
+        "bg-success/10 text-success",
       value:
-        "text-emerald-400",
+        "text-success",
     },
 
     red: {
       wrapper:
-        "border-red-500/20 bg-red-500/5",
+        "border-red-player/20 bg-red-player/5",
       icon:
-        "bg-red-500/10 text-red-400",
+        "bg-red-player/10 text-red-player",
       value:
-        "text-red-400",
+        "text-red-player",
     },
 
     neutral: {

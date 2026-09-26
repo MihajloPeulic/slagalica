@@ -1172,11 +1172,11 @@ export function KoZnaZna({
                             let dotStyle = "border-border bg-surface-light";
 
                             if (result === "blue") {
-                                dotStyle = "border-blue-500 bg-blue-500";
+                                dotStyle = "border-blue-player bg-blue-player";
                             }
 
                             if (result === "red") {
-                                dotStyle = "border-red-500 bg-red-500";
+                                dotStyle = "border-red-player bg-red-player";
                             }
 
                             if (result === "tie") {
@@ -1221,8 +1221,8 @@ export function KoZnaZna({
 
                     {phase === "revealing" && (
                         <div className="grid w-full grid-cols-2 gap-2">
-                            <div className="flex h-11 items-center justify-between rounded-xl border border-blue-500/20 bg-blue-500/5 px-3">
-                                <span className="text-xs font-black text-blue-400">Plavi</span>
+                            <div className="flex h-11 items-center justify-between rounded-xl border border-blue-player/20 bg-blue-player/5 px-3">
+                                <span className="text-xs font-black text-blue-player">Plavi</span>
 
                                 <span
                                     className={`
@@ -1231,9 +1231,9 @@ export function KoZnaZna({
                                     tabular-nums
                                     ${
                                         questionPoints.blue > 0
-                                            ? "text-emerald-400"
+                                            ? "text-success"
                                             : questionPoints.blue < 0
-                                              ? "text-red-400"
+                                              ? "text-red-player"
                                               : "text-text-secondary"
                                     }
                                 `}
@@ -1243,8 +1243,8 @@ export function KoZnaZna({
                                 </span>
                             </div>
 
-                            <div className="flex h-11 items-center justify-between rounded-xl border border-red-500/20 bg-red-500/5 px-3">
-                                <span className="text-xs font-black text-red-400">Crveni</span>
+                            <div className="flex h-11 items-center justify-between rounded-xl border border-red-player/20 bg-red-player/5 px-3">
+                                <span className="text-xs font-black text-red-player">Crveni</span>
 
                                 <span
                                     className={`
@@ -1253,9 +1253,9 @@ export function KoZnaZna({
                                     tabular-nums
                                     ${
                                         questionPoints.red > 0
-                                            ? "text-emerald-400"
+                                            ? "text-success"
                                             : questionPoints.red < 0
-                                              ? "text-red-400"
+                                              ? "text-red-player"
                                               : "text-text-secondary"
                                     }
                                 `}
@@ -1274,13 +1274,13 @@ export function KoZnaZna({
                     {phase === "revealing" && (myPassed || oppPassed) && (
                         <div className="flex w-full flex-wrap items-center justify-center gap-2">
                             {myPassed && (
-                                <span className="rounded-lg border border-border bg-surface px-2.5 py-1 text-[10px] font-black text-text-secondary">
+                                <span className="rounded-lg border border-border bg-surface px-2.5 py-1 text-[11px] font-black text-text-secondary">
                                     Ti: Dalje
                                 </span>
                             )}
 
                             {oppPassed && (
-                                <span className="rounded-lg border border-border bg-surface px-2.5 py-1 text-[10px] font-black text-text-secondary">
+                                <span className="rounded-lg border border-border bg-surface px-2.5 py-1 text-[11px] font-black text-text-secondary">
                                     Protivnik: Dalje
                                 </span>
                             )}
@@ -1305,9 +1305,9 @@ export function KoZnaZna({
                                 if (isCorrect) {
                                     buttonStyle = nobodyAnsweredCorrectly
                                         ? "border-primary bg-primary/10 text-primary"
-                                        : "border-emerald-500/40 bg-emerald-500/10 text-emerald-400";
+                                        : "border-success/40 bg-success/10 text-success";
                                 } else if (didISelect || didOppSelect) {
-                                    buttonStyle = "border-red-500/40 bg-red-500/10 text-red-400";
+                                    buttonStyle = "border-red-player/40 bg-red-player/10 text-red-player";
                                 } else {
                                     buttonStyle = "border-border bg-surface text-text-muted opacity-50";
                                 }
@@ -1356,12 +1356,12 @@ export function KoZnaZna({
                                                             border
                                                             px-2
                                                             py-1
-                                                            text-[10px]
+                                                            text-[11px]
                                                             font-black
                                                             ${
                                                                 myRole === "blue"
-                                                                    ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
-                                                                    : "border-red-500/30 bg-red-500/10 text-red-400"
+                                                                    ? "border-blue-player/30 bg-blue-player/10 text-blue-player"
+                                                                    : "border-red-player/30 bg-red-player/10 text-red-player"
                                                             }
                                                         `}
                                                 >
@@ -1376,12 +1376,12 @@ export function KoZnaZna({
                                                             border
                                                             px-2
                                                             py-1
-                                                            text-[10px]
+                                                            text-[11px]
                                                             font-black
                                                             ${
                                                                 myRole === "blue"
-                                                                    ? "border-red-500/30 bg-red-500/10 text-red-400"
-                                                                    : "border-blue-500/30 bg-blue-500/10 text-blue-400"
+                                                                    ? "border-red-player/30 bg-red-player/10 text-red-player"
+                                                                    : "border-blue-player/30 bg-blue-player/10 text-blue-player"
                                                             }
                                                         `}
                                                 >
