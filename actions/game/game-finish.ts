@@ -5,6 +5,8 @@ import "server-only";
 import { Redis } from "@upstash/redis";
 import { createClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/utils/supabase/server";
+import { updateTag } from "next/cache";
+import { leaderboardTag } from "@/lib/cache/tags";
 import type { FinalGameResult, PlayerRole } from "@/lib/game/game-result-types";
 
 const redis = Redis.fromEnv();
@@ -336,6 +338,7 @@ async function finalizeGame(
         return { error: "Finalization returned no result" };
     }
 
+    updateTag(leaderboardTag);
     return {
         success: true,
         result: mapRpcResult(row),

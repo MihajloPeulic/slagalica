@@ -2,6 +2,8 @@
 
 import { getCurrentUserWithProfile } from "@/data/auth";
 import { createServerSupabaseClient } from "@/utils/supabase/server";
+import { updateTag } from "next/cache";
+import { leaderboardTag } from "@/lib/cache/tags";
 
 
 export async function ChangeUsername(new_username: string, current_username: string){
@@ -51,6 +53,7 @@ export async function ChangeUsername(new_username: string, current_username: str
         return {error: "Greska na serveru ili username već postoji."}
     }
 
+    updateTag(leaderboardTag);
     return {success: "Uspješno ste promijenili username."}
     
 }

@@ -3,6 +3,8 @@
 import { getCurrentUserWithProfile } from "@/data/auth";
 import { createServerSupabaseClient } from "@/utils/supabase/server";
 import { rateLimits } from "@/lib/rate-limit";
+import { updateTag } from "next/cache";
+import { friendsTag } from "@/lib/cache/tags";
 import type { Database } from "@/types/supabase";
 
 type Friend =
@@ -161,6 +163,8 @@ export async function AddAFriend(
                     };
                 }
 
+                updateTag(friendsTag(currentUserId));
+                updateTag(friendsTag(targetUser.id));
                 return {
                     success:
                         "Zahtev je uspešno poslat!",
@@ -195,6 +199,8 @@ export async function AddAFriend(
             };
         }
 
+        updateTag(friendsTag(currentUserId));
+        updateTag(friendsTag(targetUser.id));
         return {
             success:
                 "Zahtev je uspešno poslat!",
@@ -258,7 +264,7 @@ export async function AcceptFriendRequest(
             currentUserId
         )
         .eq("status", "pending")
-        .select("id")
+        .select("id,sender_id")
         .maybeSingle();
 
     if (error) {
@@ -280,6 +286,8 @@ export async function AcceptFriendRequest(
         };
     }
 
+    updateTag(friendsTag(currentUserId));
+    updateTag(friendsTag(data.sender_id));
     return {
         success: true,
     };
@@ -330,7 +338,7 @@ export async function RejectFriendRequest(
             currentUserId
         )
         .eq("status", "pending")
-        .select("id")
+        .select("id,sender_id")
         .maybeSingle();
 
     if (error) {
@@ -352,6 +360,8 @@ export async function RejectFriendRequest(
         };
     }
 
+    updateTag(friendsTag(currentUserId));
+    updateTag(friendsTag(data.sender_id));
     return {
         success: true,
     };

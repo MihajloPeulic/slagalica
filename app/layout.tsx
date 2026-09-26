@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+// Existing authenticated routes still render request data directly.
+// Cache Components is adopted for data functions first.
+export const instant = false;
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],

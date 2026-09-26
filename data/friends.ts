@@ -2,6 +2,7 @@
 
 import { createServerSupabaseClient } from "@/utils/supabase/server";
 import { getCurrentUserWithProfile } from "./auth";
+import { getCachedFriends } from "@/lib/cache/friends";
 
 export type FriendRequest = {
     id: number;
@@ -65,7 +66,7 @@ export async function getFriendRequests() {
 
 export async function getFriends() {
     try {
-        const supabase = await createServerSupabaseClient();
+        // Authenticate before using the shared server cache keyed by user ID.
         const userData = await getCurrentUserWithProfile();
         const currentUserID = userData?.user?.id;
 
@@ -73,38 +74,7 @@ export async function getFriends() {
             return [];
         }
 
-
-       const { data, error } = await supabase
-        .from("friends")
-        .select(`
-            id,
-            sender_id,
-            receiver_id,
-            status,
-            sender:profiles!friends_sender_id_fkey ( id, username, experience ),
-            receiver:profiles!friends_receiver_id_fkey ( id, username, experience )
-        `)
-        .eq("status", "accepted")
-        .or(`sender_id.eq.${currentUserID},receiver_id.eq.${currentUserID}`);
-
-        if(error){
-            console.error("Greška pri dohvatanju friend requestova:", error.message);
-            return [];
-        }
-
-        const friends = (data || []).map((d: any) => {
-            // Normalizujemo podatke (ako Supabase iz nekog razloga vrati niz, uzmemo prvi element, inače uzmemo objekat)
-            const senderObj = Array.isArray(d.sender) ? d.sender[0] : d.sender;
-            const receiverObj = Array.isArray(d.receiver) ? d.receiver[0] : d.receiver;
-            
-
-            // Ako je trenutni korisnik sender, vrati profil receiver-a. U suprotnom, vrati profil sender-a!
-            return d.sender_id === currentUserID ? receiverObj : senderObj;
-        });
-
-        return friends
-
-
+        return await getCachedFriends(currentUserID);
     } catch (err) {
         console.error("Neočekivana greška:", err);
         return [];

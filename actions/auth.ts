@@ -4,6 +4,8 @@ import { createServerSupabaseClient } from "@/utils/supabase/server";
 import { rateLimits } from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/get-client-ip";
 import { redirect } from "next/navigation";
+import { updateTag } from "next/cache";
+import { leaderboardTag } from "@/lib/cache/tags";
 
 const EMAIL_REGEX =
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -105,6 +107,7 @@ export async function RegisterAction(
         };
     }
 
+    updateTag(leaderboardTag);
     redirect("/home");
 }
 
